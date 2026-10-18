@@ -10,7 +10,7 @@
   <style>
     /* =============================================================
        FÊNIX — MÓDULO DE ACESSO (login / cadastro / recuperar senha)
-       Template v1.1 — usa SOMENTE a paleta oficial Fênix.
+       Template v3.0 — usa SOMENTE a paleta oficial Fênix.
        Fonte: do sistema (sem Google Fonts, funciona offline).
     ============================================================= */
     :root {
@@ -175,7 +175,7 @@
     .auth-alert.success { background: rgba(0,118,206,.10); border: 1px solid var(--fenix-dell);    color: var(--fenix-azul);  font-weight: 600; }
 
     /* ---------- FORÇA DA SENHA ---------- */
-    .auth-strength { margin-top: -.3rem; }
+    .auth-strength { margin-top: .1rem; }
     .auth-strength-bars { display: flex; gap: 4px; margin-bottom: .3rem; }
     .auth-strength-bar { flex: 1; height: 4px; border-radius: 99px; background: var(--auth-track); transition: background var(--auth-transition); }
     .auth-strength-label { font-size: .75rem; font-weight: 600; color: var(--auth-muted); }
@@ -269,17 +269,8 @@
   <!-- ========== FORM: CADASTRO ========== -->
   <form class="auth-form" id="form-register" role="tabpanel" aria-labelledby="tab-register" novalidate>
     <h1 class="auth-title">Criar conta</h1>
-    <p class="auth-subtitle">Preencha os dados para começar.</p>
+    <p class="auth-subtitle">Informe e-mail e senha para começar. Seu nome será pedido no primeiro acesso.</p>
     <div class="auth-alert" id="register-alert" role="alert"></div>
-
-    <div class="auth-field">
-      <label class="auth-label" for="reg-name">Nome completo</label>
-      <div class="auth-input-wrap">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        <input class="auth-input" id="reg-name" name="name" type="text" placeholder="Seu nome" autocomplete="name" />
-      </div>
-      <span class="auth-field-error" id="reg-name-err">Informe seu nome.</span>
-    </div>
 
     <div class="auth-field">
       <label class="auth-label" for="reg-email">E-mail</label>
@@ -322,7 +313,7 @@
 
     <label class="auth-terms">
       <input type="checkbox" id="reg-terms" />
-      <span>Concordo com os <a class="auth-link" href="#">Termos de Uso</a> e a <a class="auth-link" href="#">Política de Privacidade</a>.</span>
+      <span>Concordo com os <a class="auth-link" href="https://fenicris-dev.github.io/Fenix-Core/fenix-termos-de-uso.html" target="_blank" rel="noopener">Termos de Uso</a> e a <a class="auth-link" href="https://fenicris-dev.github.io/Fenix-Core/fenix-politica-de-privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a>.</span>
     </label>
     <span class="auth-field-error" id="reg-terms-err">Você precisa aceitar os termos.</span>
 
@@ -372,7 +363,7 @@
   <a href="https://wa.me/5579999680880" target="_blank" rel="noopener">&lt;Cristiano Fênix/&gt;</a>
   |
   <a href="https://www.instagram.com/fenixsolucoestecnologicas/" target="_blank" rel="noopener">© Fênix Soluções Tecnológicas</a>
-  · v1.1
+  · v3.0
 </footer>
 
 <script>
@@ -466,7 +457,6 @@ $('form-login').addEventListener('submit', async function (e) {
 
 $('form-register').addEventListener('submit', async function (e) {
   e.preventDefault();
-  var name    = $('reg-name').value.trim();
   var email   = $('reg-email').value.trim();
   var pwd     = $('reg-password').value;
   var confirm = $('reg-confirm').value;
@@ -474,13 +464,12 @@ $('form-register').addEventListener('submit', async function (e) {
   var ok = true;
 
   hideAlert('register-alert');
-  ['reg-name', 'reg-email', 'reg-password', 'reg-confirm'].forEach(function (id) {
+  ['reg-email', 'reg-password', 'reg-confirm'].forEach(function (id) {
     markInput(id, false);
     fieldError(id + '-err', false);
   });
   fieldError('reg-terms-err', false);
 
-  if (!name)                 { fieldError('reg-name-err', true);     markInput('reg-name', true);     ok = false; }
   if (!validateEmail(email)) { fieldError('reg-email-err', true);    markInput('reg-email', true);    ok = false; }
   if (pwd.length < 8)        { fieldError('reg-password-err', true); markInput('reg-password', true); ok = false; }
   if (pwd !== confirm)       { fieldError('reg-confirm-err', true);  markInput('reg-confirm', true);  ok = false; }

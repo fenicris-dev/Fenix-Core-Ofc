@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FÊNIX CORE v2.3
+ * FÊNIX CORE v3.0
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
@@ -39,6 +39,14 @@
  *     // depois use: FenixCore.pessoas.buscar(cpfOuCnpj), etc.
  *   </script>
  *
+ * RECOMENDADO (Livro das Regras, regra 2): em vez do import direto, use o
+ * carregador oficial do Livro das Regras, que carrega este módulo a partir de
+ * uma cópia guardada no cache do aparelho e permite abrir o app sem internet:
+ *
+ *   window.fenixCoreReady.then(function (FenixCore) {
+ *     FenixCore.init("fenix-nome-do-app");   // uma vez só, no carregamento do app
+ *   });
+ *
  * Não é preciso preencher credenciais: o firebaseConfig do projeto
  * "fenix-core" já está definido neste arquivo (seção 1).
  *
@@ -67,21 +75,6 @@
  * aparelho (muda sempre que a versão informada muda). Os números são por
  * aparelho/navegador: trocar de aparelho ou limpar os dados zera o contador.
  * Apps que já estavam em uso começam a contar no dia em que adotarem este módulo.
- *
- * SINCRONIA PESSOAL (apps de uso pessoal, multi-aparelho):
- *   const { app, db } = FenixCore.initFirebaseComCache();
- *   const auth = FenixCore.criarModuloAuth(app);
- *   auth.aoMudarEstado(user => {
- *     if (!user) return;
- *     const sinc = FenixCore.criarModuloSincronia(db, user.uid, "meu-app");
- *     sinc.ouvir("tarefas", (mudancas, meta) => { ... }, erro => { ... });
- *     sinc.salvar("tarefas", { id: "abc", nome: "Ler" });
- *   });
- * Cada usuário só enxerga os próprios dados. Regra a acrescentar no
- * firestore.rules (dentro de match /databases/{database}/documents):
- *   match /dados_pessoais/{uid}/{colecao}/{docId} {
- *     allow read, write: if request.auth != null && request.auth.uid == uid;
- *   }
  *
  * REGRA DE ESCRITA DOS TEXTOS (todos os apps):
  *  - Nome de Pessoa Física e de Pessoa Jurídica (razão social e nome
@@ -175,17 +168,43 @@
  *        atualização), com histórico das últimas 20 versões instaladas. O
  *        primeiro acesso também passa a ser o início da contagem de 7 dias do
  *        alerta de backup. Puramente aditivo — nenhuma função existente mudou.
- * v2.3 — Sincronização pessoal multi-aparelho (usada pelo Fênix Gestor de Tempo
- *        v2.0): (1) initFirebaseComCache(): igual a initFirebase(), mas ativa o
- *        cache offline do Firestore (escritas feitas sem internet ficam na
- *        fila e sobem sozinhas). Deve ser chamada ANTES de qualquer init()/
- *        initFirebase() na mesma página. (2) criarModuloSincronia(db, uid,
- *        nomeApp): dados PRIVADOS do usuário em dados_pessoais/{uid}/
- *        {nomeApp}_{colecao}/{id}, com ouvir() em tempo real, salvar(),
- *        salvarVarios(), excluir() e medirRelogio() (diferença entre o relógio
- *        do aparelho e o do servidor). (3) criarModuloAuth ganhou
- *        recuperarSenha(email). Puramente aditivo — nenhuma função existente
- *        mudou. REQUER regra no firestore.rules (ver SINCRONIA PESSOAL no topo).
+ * v2.3 — (1) FenixCore.EMPRESA ganha "razaoSocial" ("60292 CRISTIANO
+ *        RODRIGUES", como consta na Receita Federal); "nome" continua sendo o
+ *        nome fantasia "Fênix Soluções Tecnológicas".
+ *        (2) Correção do e-mail em FenixCore.EMPRESA.email:
+ *        trampodofenix@gmail.com (a v2.1 e a v2.2 traziam "trempodofenix",
+ *        com erro de digitação).
+ *        (3) Texto de uso atualizado: os apps carregam o core pelo carregador
+ *        oficial do Livro das Regras (regra 2), que carrega este módulo a
+ *        partir de uma cópia em cache e funciona offline; o import direto da
+ *        URL continua funcionando.
+ *        Nenhuma função mudou.
+ * v2.4 — Três módulos NOVOS, para os apps montarem sem repetir código
+ *        (Livro das Regras v2.7, regras 12, 13 e 54). Puramente aditivo:
+ *        nenhuma função existente foi alterada ou removida.
+ *        (1) FenixCore.sobre ganha: montarTela (tela Sobre completa, com o
+ *        Changelog), changelogHTML, ordenarChangelog, datasDoApp (data de
+ *        criação do app e da última modificação) e baixarChangelogPDF. Cada
+ *        versão do Changelog traz "criadaEm" e "modificadaEm".
+ *        (2) FenixCore.manual: paraHTML, montarTela e baixarPDF. O manual do
+ *        usuário é escrito em Markdown (prints em base64), consultado dentro
+ *        do app e baixado em PDF.
+ *        (3) FenixCore.dashboard.montar: indicadores clicáveis que expandem
+ *        os registros que os formam (ver exemplo na seção 17).
+ *        Os PDFs usam o jsPDF que o app já embute (window.jspdf).
+ * v2.5 — Consulta de CNPJ com endereço completo (Livro das Regras v2.9,
+ *        regra 35). Puramente aditivo: nenhuma função existente foi alterada.
+ *        (1) FenixCore.pessoas.consultarCNPJ(cnpj): devolve Razão Social,
+ *        Endereço, Número, Bairro, CEP, Cidade e UF; se a API do CNPJ trouxer
+ *        só o CEP, completa pela BrasilAPI (consulta de CEP), sem o usuário
+ *        redigitar.
+ *        (2) FenixCore.localidades.buscarPorCEPBrasilAPI(cep): consulta de CEP
+ *        pela BrasilAPI. As duas funções não usam o Firestore.
+ * v3.0 — Nivelamento de versões (Livro das Regras v3.0, regras 7 e 11).
+        Livro, core, templates e documentos legais passam a andar juntos, com
+        o mesmo número; por isso o core salta da 2.5 para a 3.0 (exceção única,
+        registrada no Histórico do livro). Nenhuma função foi alterada: o
+        código é idêntico ao da v2.5.
  * ============================================================================
  */
 
@@ -193,13 +212,11 @@ import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebase
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, getDocs, query, where, orderBy, limit as fsLimit,
-  serverTimestamp,
-  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  onSnapshot, writeBatch, getDocFromServer
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, signOut, sendPasswordResetEmail
+  createUserWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ============================================================================
@@ -222,7 +239,8 @@ const EMPRESA = Object.freeze({
   nome: "Fênix Soluções Tecnológicas",
   cnpj: "60292878000170",
   cnpjFormatado: "60.292.878/0001-70",
-  email: "trempodofenix@gmail.com"
+  razaoSocial: "60292 CRISTIANO RODRIGUES",   // como consta na Receita Federal (nome = nome fantasia)
+  email: "trampodofenix@gmail.com"
 });
 
 let _db = null;
@@ -258,24 +276,6 @@ function init(nomeApp) {
 function initFirebase(config) {
   const app = _obterAppFirebase(config);
   _db = getFirestore(app);
-  return { app, db: _db };
-}
-
-/**
- * Como initFirebase(), mas com cache offline do Firestore (IndexedDB): leituras
- * funcionam sem internet e escritas feitas offline sobem quando a conexão volta.
- * Chame ANTES de qualquer init()/initFirebase() na página; se o Firestore já
- * tiver sido iniciado sem cache, reaproveita-o (sem cache offline).
- */
-function initFirebaseComCache(config) {
-  const app = _obterAppFirebase(config);
-  try {
-    _db = initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-    });
-  } catch (e) {
-    _db = getFirestore(app);
-  }
   return { app, db: _db };
 }
 
@@ -754,9 +754,6 @@ function criarModuloAuth(app) {
     sair() {
       return signOut(auth);
     },
-    recuperarSenha(email) {
-      return sendPasswordResetEmail(auth, email);
-    },
     usuarioAtual() {
       return auth.currentUser;
     }
@@ -1186,108 +1183,719 @@ const sobre = {
 };
 
 // ============================================================================
-// 15. SINCRONIA PESSOAL — dados privados do usuário, multi-aparelho
+// 15. SOBRE (TELA E CHANGELOG) — acrescenta métodos ao módulo FenixCore.sobre
 // ============================================================================
 /**
- * Estrutura: dados_pessoais/{uid}/{nomeApp}_{colecao}/{id}
- * Cada documento é gravado por inteiro (a última gravação vale) e leva o campo
- * interno "_u" (horário corrigido pelo servidor, em ms), que não é devolvido
- * ao app: o app recebe "atualizadoEm" à parte.
- * @param {object} db - de initFirebaseComCache() (ou initFirebase())
- * @param {string} uid - uid do usuário logado
- * @param {string} nomeApp - namespace do app, ex: "fenix-tempo"
+ * Nada aqui altera o que já existia em FenixCore.sobre (registrarAcesso,
+ * obter, formatarData): são métodos NOVOS, só para montar a tela Sobre com o
+ * Changelog (Livro das Regras, regras 12 e 13).
+ *
+ * Formato do changelog (lista; a ordem não importa, é reordenada da versão
+ * mais nova para a mais antiga):
+ *   [
+ *     { versao: "1.1", criadaEm: "2026-10-02", modificadaEm: "2026-10-05",
+ *       mudancas: ["Novo filtro por data", "Correção no total"] },
+ *     { versao: "1.0", criadaEm: "2026-09-20", mudancas: ["Primeira versão"] }
+ *   ]
+ * "modificadaEm" é opcional: se faltar, vale a mesma data de "criadaEm".
+ * Datas no formato aaaa-mm-dd (ou ISO completo); são exibidas como dd/mm/aaaa.
  */
-function criarModuloSincronia(db, uid, nomeApp) {
-  if (!uid) throw new Error("criarModuloSincronia: faltou o uid do usuário logado.");
-  if (!nomeApp) throw new Error("criarModuloSincronia: faltou o nomeApp.");
-  const CHAVE_RELOGIO = "fenix_relogio__" + nomeApp;
-  let offset = 0;
-  try { const v = Number(localStorage.getItem(CHAVE_RELOGIO)); if (isFinite(v)) offset = v; } catch (e) { /* sem storage */ }
-  const nomeCol = nome => nomeApp + "_" + nome;
-  const col = nome => collection(db, "dados_pessoais", uid, nomeCol(nome));
-  const ref = (nome, id) => doc(db, "dados_pessoais", uid, nomeCol(nome), String(id));
-  const agora = () => Date.now() + offset;
-  // Firestore não aceita "undefined": remove-os (e copia o objeto).
-  const limpar = obj => JSON.parse(JSON.stringify(obj));
-  const comMarca = obj => ({ ...limpar(obj), _u: agora() });
 
+// ---- utilidades internas compartilhadas (sobre, manual, dashboard) --------
+
+function _esc(valor) {
+  return String(valor == null ? "" : valor).replace(/[&<>"']/g, c => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+function _semV(versao) {
+  return String(versao == null ? "" : versao).trim().replace(/^v/i, "");
+}
+
+/** Compara "1.10" e "1.9" número a número. Retorna > 0 se a for mais nova que b. */
+function _compararVersoes(a, b) {
+  const pa = _semV(a).split(".").map(n => parseInt(n, 10) || 0);
+  const pb = _semV(b).split(".").map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff) return diff;
+  }
+  return 0;
+}
+
+/** "2026-10-05" (ou ISO completo) -> "05/10/2026". Retorna "" se inválida. */
+function _dataBR(valor) {
+  if (!valor) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(valor));
+  if (m) return m[3] + "/" + m[2] + "/" + m[1];   // sem passar por Date: evita erro de fuso
+  return sobre.formatarData(valor, false);
+}
+
+function _dia(valor) {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(valor || ""));
+  return m ? m[1] : "";
+}
+
+function _resolverContainer(container) {
+  if (typeof container === "string") return document.querySelector(container);
+  return container || null;
+}
+
+const _FX_ESTILOS_ID = "fenix-core-estilos";
+function _injetarEstilos() {
+  if (typeof document === "undefined" || document.getElementById(_FX_ESTILOS_ID)) return;
+  const st = document.createElement("style");
+  st.id = _FX_ESTILOS_ID;
+  st.textContent = [
+    ".fx-dash-card{font:inherit;text-align:left;cursor:pointer;background:#fff;color:#020733;border:2px solid transparent;border-radius:12px;padding:14px;min-height:64px;box-shadow:0 1px 4px rgba(2,7,51,.12);transition:border-color .15s,box-shadow .15s}",
+    ".fx-dash-card:hover,.fx-dash-card:focus-visible{border-color:#ffcb00;box-shadow:0 2px 8px rgba(2,7,51,.2);outline:none}",
+    ".fx-dash-card[aria-expanded=true]{border-color:#ffcb00}",
+    ".fx-dash-card[aria-disabled=true]{cursor:default;opacity:.7}",
+    ".fx-dash-card[aria-disabled=true]:hover{border-color:transparent;box-shadow:0 1px 4px rgba(2,7,51,.12)}",
+    ".fx-dash-item{font:inherit;width:100%;text-align:left;background:#fff;color:#020733;border:1px solid #d9deef;border-radius:10px;padding:12px;min-height:44px;margin:0 0 8px}",
+    "button.fx-dash-item{cursor:pointer}",
+    "button.fx-dash-item:hover,button.fx-dash-item:focus-visible{border-color:#ffcb00;outline:none}",
+    ".fx-btn{font:inherit;cursor:pointer;min-height:44px;padding:10px 16px;border-radius:8px;border:0;background:#0076CE;color:#fff;font-weight:600}",
+    ".fx-btn:hover,.fx-btn:focus-visible{background:#ffcb00;color:#020733;outline:none}",
+    ".fx-manual{color:#020733;line-height:1.5}",
+    ".fx-manual h1,.fx-manual h2,.fx-manual h3{color:#041273;margin:1.2em 0 .4em}",
+    ".fx-manual img{max-width:100%;height:auto;border:1px solid #d9deef;border-radius:8px;margin:8px 0}",
+    ".fx-manual code{background:#eef1fa;padding:1px 5px;border-radius:4px}",
+    ".fx-manual pre{background:#eef1fa;padding:10px;border-radius:8px;overflow:auto}",
+    ".fx-manual blockquote{margin:8px 0;padding:6px 12px;border-left:4px solid #ffcb00;background:#fffbe6}"
+  ].join("\n");
+  document.head.appendChild(st);
+}
+
+// ---- gerador de PDF compartilhado (changelog e manual) ---------------------
+
+function _jsPDF() {
+  const J = (typeof window !== "undefined") && ((window.jspdf && window.jspdf.jsPDF) || window.jsPDF);
+  if (!J) throw new Error("FenixCore: jsPDF não encontrado. O app deve embutir o jsPDF antes de gerar PDF.");
+  return J;
+}
+
+/** O jsPDF padrão só tem o alfabeto Latin-1: troca o que ele não desenha. */
+function _pdfTexto(s) {
+  return String(s == null ? "" : s)
+    .replace(/→/g, "->").replace(/←/g, "<-").replace(/[✓✔]/g, "OK").replace(/[✗✘]/g, "X")
+    .replace(/[←-⇿☀-➿\u{1F000}-\u{1FFFF}]/gu, "")
+    .replace(/[^\x09\x0A\x20-\x7E -ÿ•–—‘’“”…]/g, "?");
+}
+
+function _semMarcasMD(s) {
+  return String(s == null ? "" : s)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)")
+    .replace(/(\*\*|__)(.+?)\1/g, "$2")
+    .replace(/(^|[^*\w])[*_]([^*_]+)[*_](?![*\w])/g, "$1$2")
+    .replace(/`([^`]+)`/g, "$1");
+}
+
+function _carregarImagemJPEG(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0);
+        resolve({ dados: c.toDataURL("image/jpeg", 0.85), w: c.width, h: c.height });
+      } catch (e) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function _novoPDF(titulo) {
+  const J = _jsPDF();
+  const doc = new J({ unit: "mm", format: "a4" });
+  const L = 15, LARG = 210 - 2 * L, TOPO = 24, BASE = 285;
+  let y = TOPO;
+  function novaPagina() { doc.addPage(); y = TOPO; }
+  function garantir(h) { if (y + h > BASE) novaPagina(); }
+  function texto(txt, { tam = 11, negrito = false, cor = [2, 7, 51], recuo = 0, espaco = 2 } = {}) {
+    doc.setFont("helvetica", negrito ? "bold" : "normal");
+    doc.setFontSize(tam);
+    doc.setTextColor(cor[0], cor[1], cor[2]);
+    const linhas = doc.splitTextToSize(_pdfTexto(txt), LARG - recuo);
+    const alt = tam * 0.3528 * 1.35;
+    linhas.forEach(l => { garantir(alt); doc.text(l, L + recuo, y + tam * 0.3528); y += alt; });
+    y += espaco;
+  }
   return {
-    /** Horário atual corrigido pela diferença com o servidor. */
-    agora,
-    /** Diferença atual (ms) entre o servidor e o relógio do aparelho. */
-    relogio() { return offset; },
-
-    /**
-     * Escuta uma coleção em tempo real.
-     * aoMudar(mudancas, meta): mudancas = [{tipo:"added"|"modified"|"removed", id, dados,
-     *   atualizadoEm, pendente}]; pendente=true é uma gravação deste aparelho ainda não
-     *   confirmada. meta = {doCache, pendente}; doCache=true quando veio só do cache.
-     * @returns {function} cancela a escuta
-     */
-    ouvir(nome, aoMudar, aoErro) {
-      return onSnapshot(col(nome), snap => {
-        const mudancas = snap.docChanges().map(c => {
-          const dados = c.doc.data();
-          const atualizadoEm = dados._u || 0;
-          delete dados._u;
-          return { tipo: c.type, id: c.doc.id, dados, atualizadoEm, pendente: c.doc.metadata.hasPendingWrites };
-        });
-        aoMudar(mudancas, { doCache: snap.metadata.fromCache, pendente: snap.metadata.hasPendingWrites });
-      }, err => {
-        if (typeof aoErro === "function") aoErro(err);
-        else console.error("FenixCore.sincronia:", err);
-      });
+    doc,
+    titulo(t) { texto(t, { tam: 20, negrito: true, cor: [4, 18, 115], espaco: 3 }); },
+    h2(t) { garantir(14); y += 3; texto(t, { tam: 15, negrito: true, cor: [4, 18, 115], espaco: 2 }); },
+    h3(t) { garantir(10); y += 1; texto(t, { tam: 12.5, negrito: true, cor: [0, 118, 206], espaco: 1.5 }); },
+    p(t, opc) { texto(t, opc); },
+    li(t, marca) { texto((marca || "•") + " " + t, { recuo: 4, espaco: 1 }); },
+    espaco(mm) { y += mm; },
+    async imagem(src) {
+      const im = await _carregarImagemJPEG(src);
+      if (!im) return;
+      let w = Math.min(LARG, 80);
+      let h = w * im.h / im.w;
+      if (h > 200) { h = 200; w = h * im.w / im.h; }
+      garantir(h + 4);
+      doc.addImage(im.dados, "JPEG", L, y, w, h);
+      doc.setDrawColor(217, 222, 239); doc.rect(L, y, w, h);
+      y += h + 4;
     },
-
-    /** Grava (substitui) um documento; obj.id é obrigatório. */
-    salvar(nome, obj) {
-      if (!obj || obj.id == null) return Promise.reject(new Error(nome + ": registro sem id."));
-      return setDoc(ref(nome, obj.id), comMarca(obj));
-    },
-
-    /** Grava vários documentos (em lotes de 400). */
-    async salvarVarios(nome, lista) {
-      for (let i = 0; i < lista.length; i += 400) {
-        const lote = writeBatch(db);
-        lista.slice(i, i + 400).forEach(o => {
-          if (o == null || o.id == null) throw new Error(nome + ": registro sem id.");
-          lote.set(ref(nome, o.id), comMarca(o));
-        });
-        await lote.commit();
+    finalizar(nomeArquivo) {
+      const total = doc.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFillColor(4, 7, 152); doc.rect(0, 0, 210, 14, "F");
+        doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+        doc.text(_pdfTexto("Fênix Soluções Tecnológicas"), L, 9);
+        doc.setFont("helvetica", "normal");
+        doc.text(_pdfTexto(titulo), 210 - L, 9, { align: "right" });
+        doc.setTextColor(110, 116, 150); doc.setFontSize(9);
+        doc.text("Página " + i + " de " + total, 210 / 2, 292, { align: "center" });
       }
-      return true;
-    },
-
-    excluir(nome, id) {
-      if (id == null) return Promise.reject(new Error(nome + ": faltou o id para excluir."));
-      return deleteDoc(ref(nome, id));
-    },
-
-    /**
-     * Mede a diferença entre o relógio do aparelho e o do servidor (ms) e guarda
-     * no aparelho. Precisa de internet; sem resposta em 8 s mantém o valor anterior.
-     */
-    async medirRelogio() {
-      const r = doc(db, "dados_pessoais", uid, nomeCol("sistema"), "relogio");
-      const medir = (async () => {
-        const t0 = Date.now();
-        await setDoc(r, { t: serverTimestamp() });
-        const t1 = Date.now();
-        const snap = await getDocFromServer(r);
-        const t = snap.data() && snap.data().t;
-        if (!t || !t.toMillis) return offset;
-        return Math.round(t.toMillis() - (t0 + t1) / 2);
-      })();
-      const limite = new Promise(res => setTimeout(() => res(null), 8000));
-      const novo = await Promise.race([medir, limite]).catch(() => null);
-      if (novo != null && isFinite(novo)) {
-        offset = novo;
-        try { localStorage.setItem(CHAVE_RELOGIO, String(offset)); } catch (e) { /* sem storage */ }
-      }
-      return offset;
+      doc.save(nomeArquivo);
+      return nomeArquivo;
     }
   };
 }
+
+// ---- Sobre: métodos novos ---------------------------------------------------
+
+function _normalizarChangelog(changelog) {
+  return (Array.isArray(changelog) ? changelog : [])
+    .filter(v => v && v.versao != null)
+    .map(v => {
+      const criada = _dia(v.criadaEm);
+      return {
+        versao: _semV(v.versao),
+        criadaEm: criada,
+        modificadaEm: _dia(v.modificadaEm) || criada,
+        mudancas: Array.isArray(v.mudancas) ? v.mudancas.map(String) : (v.mudancas ? [String(v.mudancas)] : [])
+      };
+    })
+    .sort((a, b) => _compararVersoes(b.versao, a.versao));
+}
+
+Object.assign(sobre, {
+  /** Changelog ordenado da versão mais nova para a mais antiga, com as datas normalizadas. */
+  ordenarChangelog(changelog) {
+    return _normalizarChangelog(changelog);
+  },
+
+  /**
+   * Data de criação do app (menor "criadaEm") e data da última modificação
+   * (maior "modificadaEm") a partir do changelog. Textos já em dd/mm/aaaa.
+   */
+  datasDoApp(changelog) {
+    const lista = _normalizarChangelog(changelog);
+    const criadas = lista.map(v => v.criadaEm).filter(Boolean).sort();
+    const modificadas = lista.map(v => v.modificadaEm).filter(Boolean).sort();
+    const criadoEm = criadas[0] || "";
+    const ultimaModificacao = modificadas[modificadas.length - 1] || "";
+    return {
+      criadoEm, criadoEmTexto: _dataBR(criadoEm),
+      ultimaModificacao, ultimaModificacaoTexto: _dataBR(ultimaModificacao)
+    };
+  },
+
+  /** HTML (já escapado) do Changelog: uma caixa por versão, com as duas datas. */
+  changelogHTML(changelog) {
+    const lista = _normalizarChangelog(changelog);
+    if (!lista.length) return '<p style="color:#020733">Nenhuma versão registrada.</p>';
+    return lista.map(v => {
+      const itens = v.mudancas.map(m => "<li>" + _esc(m) + "</li>").join("");
+      return '<div style="background:#fff;border:1px solid #d9deef;border-radius:10px;padding:12px 14px;margin:0 0 10px;color:#020733">' +
+        '<div style="font-weight:700;color:#041273;font-size:16px">v' + _esc(v.versao) + "</div>" +
+        '<div style="font-size:13px;color:#555b80;margin:2px 0 6px">Criada em ' + _esc(_dataBR(v.criadaEm) || "—") +
+        " · Modificada em " + _esc(_dataBR(v.modificadaEm) || "—") + "</div>" +
+        (itens ? '<ul style="margin:0;padding-left:20px;line-height:1.5">' + itens + "</ul>" : "") +
+        "</div>";
+    }).join("");
+  },
+
+  /**
+   * Monta a tela Sobre completa dentro de um elemento (ou seletor):
+   * versão, acessos, primeiro acesso, última atualização, data de criação do
+   * app, data da última modificação, dados da Fênix e o Changelog com botão
+   * para baixar em PDF. Não conta acesso (isso é do registrarAcesso).
+   * @param {Element|string} container
+   * @param {object} opcoes - { nomeApp (obrigatório), titulo, versao, changelog }
+   */
+  montarTela(container, opcoes = {}) {
+    const alvo = _resolverContainer(container);
+    if (!alvo) throw new Error("sobre.montarTela: container não encontrado.");
+    _injetarEstilos();
+    const { nomeApp, titulo, versao, changelog } = opcoes;
+    if (!nomeApp) throw new Error("sobre.montarTela: informe nomeApp.");
+    const info = sobre.obter(nomeApp);
+    const datas = sobre.datasDoApp(changelog);
+    const lista = _normalizarChangelog(changelog);
+    const versaoAtual = versao || (lista[0] && lista[0].versao) || (info && info.versao) || "";
+    const fatos = [
+      ["Versão", versaoAtual ? "v" + _semV(versaoAtual) : "—"],
+      ["Acessos", info ? String(info.acessos) : "—"],
+      ["Primeiro acesso", info ? info.primeiroAcessoTexto : "—"],
+      ["Última atualização", info ? info.ultimaAtualizacaoTexto : "—"],
+      ["Criado em", datas.criadoEmTexto || "—"],
+      ["Última modificação", datas.ultimaModificacaoTexto || "—"]
+    ];
+    alvo.innerHTML =
+      '<div style="color:#020733;line-height:1.45">' +
+      '<h2 style="color:#041273;margin:0 0 10px">' + _esc(titulo || "Sobre") + "</h2>" +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px">' +
+      fatos.map(f => '<div style="background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 1px 4px rgba(2,7,51,.12)">' +
+        '<div style="font-size:12px;color:#555b80">' + _esc(f[0]) + '</div><div style="font-weight:700">' + _esc(f[1]) + "</div></div>").join("") +
+      "</div>" +
+      '<div style="background:#fff;border-radius:10px;padding:10px 12px;margin:0 0 14px;box-shadow:0 1px 4px rgba(2,7,51,.12);font-size:14px">' +
+      "<strong>" + _esc(EMPRESA.nome) + "</strong><br>" + _esc(EMPRESA.razaoSocial) + " · CNPJ " + _esc(EMPRESA.cnpjFormatado) +
+      "<br>" + _esc(EMPRESA.email) + "</div>" +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 8px">' +
+      '<h3 style="color:#041273;margin:0">Changelog</h3>' +
+      '<button type="button" class="fx-btn" data-fx-changelog-pdf>Baixar Changelog (PDF)</button></div>' +
+      sobre.changelogHTML(changelog) + "</div>";
+    const btn = alvo.querySelector("[data-fx-changelog-pdf]");
+    if (btn) btn.addEventListener("click", () => {
+      sobre.baixarChangelogPDF(nomeApp, changelog, { versao: versaoAtual, titulo }).catch(e => {
+        console.error("FenixCore.sobre: falha ao gerar o PDF do Changelog:", e);
+        alert("Não foi possível gerar o PDF agora. Tente novamente.");
+      });
+    });
+    return alvo;
+  },
+
+  /**
+   * Baixa o Changelog em PDF (usa o jsPDF que o app já embute).
+   * Nome do arquivo: <nomeApp>-changelog-vX.X.pdf
+   * @returns {Promise<string>} nome do arquivo gerado
+   */
+  async baixarChangelogPDF(nomeApp, changelog, opcoes = {}) {
+    const lista = _normalizarChangelog(changelog);
+    const versao = _semV(opcoes.versao || (lista[0] && lista[0].versao) || "");
+    const nomeLegivel = opcoes.titulo || nomeApp;
+    const pdf = _novoPDF("Changelog");
+    const datas = sobre.datasDoApp(changelog);
+    pdf.titulo("Changelog — " + nomeLegivel);
+    pdf.p("Criado em " + (datas.criadoEmTexto || "—") + " · Última modificação " + (datas.ultimaModificacaoTexto || "—"), { tam: 10, cor: [85, 91, 128], espaco: 4 });
+    lista.forEach(v => {
+      pdf.h2("v" + v.versao);
+      pdf.p("Criada em " + (_dataBR(v.criadaEm) || "—") + " · Modificada em " + (_dataBR(v.modificadaEm) || "—"), { tam: 10, cor: [85, 91, 128], espaco: 2 });
+      v.mudancas.forEach(m => pdf.li(m));
+    });
+    return pdf.finalizar(nomeApp + "-changelog" + (versao ? "-v" + versao : "") + ".pdf");
+  }
+});
+
+// ============================================================================
+// 16. MANUAL — manual do usuário em MD (consulta no app) e PDF (download)
+// ============================================================================
+/**
+ * Livro das Regras, regra 12. O manual é escrito em Markdown simples e fica
+ * dentro do próprio app (texto). Prints entram como imagens em base64:
+ *   ![Tela inicial](data:image/jpeg;base64,....)
+ * Suportado: títulos (#, ##, ###), parágrafos, listas (- e 1.), **negrito**,
+ * *itálico*, `código`, [link](https://...), citação (>), linha (---),
+ * bloco de código (```) e imagens (uma por linha).
+ *
+ * Uso:
+ *   FenixCore.manual.montarTela("#areaManual", MANUAL_MD,
+ *     { nomeApp: "fenix-meu-app", versao: "1.3", titulo: "Meu App" });
+ */
+
+function _mdBlocos(md) {
+  const linhas = String(md == null ? "" : md).replace(/\r\n?/g, "\n").split("\n");
+  const blocos = [];
+  let par = [];
+  let lista = null;
+  const fechaPar = () => { if (par.length) { blocos.push({ t: "p", texto: par.join(" ") }); par = []; } };
+  const fechaLista = () => { if (lista) { blocos.push(lista); lista = null; } };
+  for (let i = 0; i < linhas.length; i++) {
+    const l = linhas[i];
+    let m;
+    if ((m = /^\s*```/.exec(l))) {
+      fechaPar(); fechaLista();
+      const cod = [];
+      i++;
+      while (i < linhas.length && !/^\s*```/.test(linhas[i])) { cod.push(linhas[i]); i++; }
+      blocos.push({ t: "code", texto: cod.join("\n") });
+      continue;
+    }
+    if (!l.trim()) { fechaPar(); fechaLista(); continue; }
+    if ((m = /^(#{1,3})\s+(.*)$/.exec(l))) { fechaPar(); fechaLista(); blocos.push({ t: "h" + m[1].length, texto: m[2].trim() }); continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) { fechaPar(); fechaLista(); blocos.push({ t: "hr" }); continue; }
+    if ((m = /^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/.exec(l))) { fechaPar(); fechaLista(); blocos.push({ t: "img", alt: m[1], src: m[2] }); continue; }
+    if ((m = /^\s*>\s?(.*)$/.exec(l))) { fechaPar(); fechaLista(); blocos.push({ t: "quote", texto: m[1] }); continue; }
+    if ((m = /^\s*[-*+]\s+(.*)$/.exec(l))) {
+      fechaPar();
+      if (!lista || lista.t !== "ul") { fechaLista(); lista = { t: "ul", itens: [] }; }
+      lista.itens.push(m[1]); continue;
+    }
+    if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(l))) {
+      fechaPar();
+      if (!lista || lista.t !== "ol") { fechaLista(); lista = { t: "ol", itens: [] }; }
+      lista.itens.push(m[1]); continue;
+    }
+    if (lista && /^\s+\S/.test(l)) { lista.itens[lista.itens.length - 1] += " " + l.trim(); continue; }
+    fechaLista();
+    par.push(l.trim());
+  }
+  fechaPar(); fechaLista();
+  return blocos;
+}
+
+function _inlineMD(texto) {
+  let s = _esc(texto);
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:|#)[^\s)]*)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s = s.replace(/(\*\*|__)(.+?)\1/g, "<strong>$2</strong>");
+  s = s.replace(/(^|[^*\w])[*_]([^*_]+)[*_](?![*\w])/g, "$1<em>$2</em>");
+  return s;
+}
+
+function _srcImagemSegura(src) {
+  return /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(src) || /^https:\/\//i.test(src);
+}
+
+const manual = {
+  /** Converte o Markdown do manual em HTML seguro (tudo escapado). */
+  paraHTML(md) {
+    return _mdBlocos(md).map(b => {
+      switch (b.t) {
+        case "h1": case "h2": case "h3": return "<" + b.t + ">" + _inlineMD(b.texto) + "</" + b.t + ">";
+        case "p": return "<p>" + _inlineMD(b.texto) + "</p>";
+        case "ul": return "<ul>" + b.itens.map(i => "<li>" + _inlineMD(i) + "</li>").join("") + "</ul>";
+        case "ol": return "<ol>" + b.itens.map(i => "<li>" + _inlineMD(i) + "</li>").join("") + "</ol>";
+        case "quote": return "<blockquote>" + _inlineMD(b.texto) + "</blockquote>";
+        case "code": return "<pre><code>" + _esc(b.texto) + "</code></pre>";
+        case "hr": return "<hr>";
+        case "img": return _srcImagemSegura(b.src) ? '<img src="' + _esc(b.src) + '" alt="' + _esc(b.alt) + '" loading="lazy">' : "";
+        default: return "";
+      }
+    }).join("\n");
+  },
+
+  /**
+   * Mostra o manual (somente leitura) dentro de um elemento ou seletor.
+   * Se informar nomeApp, mostra também o botão "Baixar manual (PDF)".
+   * @param {object} opcoes - { nomeApp, versao, titulo }
+   */
+  montarTela(container, md, opcoes = {}) {
+    const alvo = _resolverContainer(container);
+    if (!alvo) throw new Error("manual.montarTela: container não encontrado.");
+    _injetarEstilos();
+    const barra = opcoes.nomeApp
+      ? '<div style="margin:0 0 10px"><button type="button" class="fx-btn" data-fx-manual-pdf>Baixar manual (PDF)</button></div>'
+      : "";
+    alvo.innerHTML = '<div class="fx-manual">' + barra + manual.paraHTML(md) + "</div>";
+    const btn = alvo.querySelector("[data-fx-manual-pdf]");
+    if (btn) btn.addEventListener("click", () => {
+      manual.baixarPDF(opcoes.nomeApp, opcoes.versao, md, { titulo: opcoes.titulo }).catch(e => {
+        console.error("FenixCore.manual: falha ao gerar o PDF:", e);
+        alert("Não foi possível gerar o PDF agora. Tente novamente.");
+      });
+    });
+    return alvo;
+  },
+
+  /**
+   * Gera e baixa o manual em PDF (usa o jsPDF que o app já embute), a partir
+   * do mesmo Markdown. Prints em base64 entram no PDF.
+   * Nome do arquivo: <nomeApp>-manual-vX.X.pdf
+   * @returns {Promise<string>} nome do arquivo gerado
+   */
+  async baixarPDF(nomeApp, versao, md, opcoes = {}) {
+    if (!nomeApp) throw new Error("manual.baixarPDF: informe nomeApp.");
+    const v = _semV(versao);
+    const pdf = _novoPDF("Manual do usuário" + (v ? " · v" + v : ""));
+    if (opcoes.titulo) pdf.titulo(opcoes.titulo);
+    for (const b of _mdBlocos(md)) {
+      switch (b.t) {
+        case "h1": pdf.titulo(_semMarcasMD(b.texto)); break;
+        case "h2": pdf.h2(_semMarcasMD(b.texto)); break;
+        case "h3": pdf.h3(_semMarcasMD(b.texto)); break;
+        case "p": pdf.p(_semMarcasMD(b.texto)); break;
+        case "ul": b.itens.forEach(i => pdf.li(_semMarcasMD(i))); pdf.espaco(1); break;
+        case "ol": b.itens.forEach((i, n) => pdf.li(_semMarcasMD(i), (n + 1) + ".")); pdf.espaco(1); break;
+        case "quote": pdf.p(_semMarcasMD(b.texto), { recuo: 4, cor: [85, 91, 128] }); break;
+        case "code": pdf.p(b.texto, { tam: 9.5, recuo: 4 }); break;
+        case "img": if (_srcImagemSegura(b.src)) await pdf.imagem(b.src); break;
+        default: break;
+      }
+    }
+    return pdf.finalizar(nomeApp + "-manual" + (v ? "-v" + v : "") + ".pdf");
+  }
+};
+
+// ============================================================================
+// 17. DASHBOARD CLICÁVEL — indicadores que expandem os registros que os formam
+// ============================================================================
+/**
+ * Livro das Regras, regra 54. Cada indicador com dados é clicável e expande a
+ * lista que o compõe, com o mesmo número do indicador. Indicador zerado não
+ * abre e mostra "Nenhum registro". A lista tem botão Fechar, Esc fecha, e o
+ * dashboard volta à posição em que estava. Também funciona pelo teclado.
+ *
+ *   const dash = FenixCore.dashboard.montar("#dash", [
+ *     { id: "total",  rotulo: "Total de serviços", registros: servicos },
+ *     { id: "andam",  rotulo: "Em andamento", registros: () => servicos.filter(s => s.situacao === "andamento") },
+ *     { id: "valor",  rotulo: "A receber", moeda: true, valor: 1234.5, registros: lancamentos }
+ *   ], {
+ *     rotuloRegistro:  s => s.cliente,            // linha principal (texto simples)
+ *     detalheRegistro: s => s.situacao,           // linha secundária (opcional)
+ *     aoAbrirRegistro: (s, indicador) => abrirDetalhe(s.id)   // redireciona ao detalhe
+ *   });
+ *   // gráficos: ao clicar numa fatia/barra, abra os registros dela:
+ *   // dash.abrirLista("Interrompidos (3)", registrosDaFatia);
+ *   // depois de mudar os dados: dash.atualizar();
+ *
+ * Cada indicador aceita: id, rotulo, registros (lista ou função que devolve a
+ * lista), valor (padrão = quantidade de registros), moeda (formata em R$),
+ * rotuloRegistro, detalheRegistro e aoAbrirRegistro (sobrepõem os de "opcoes").
+ */
+
+function _formatarMoedaBR(n) {
+  const num = Number(n);
+  if (!isFinite(num)) return String(n);
+  return "R$ " + num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+const dashboard = {
+  montar(container, indicadores, opcoes = {}) {
+    const raiz = _resolverContainer(container);
+    if (!raiz) throw new Error("dashboard.montar: container não encontrado.");
+    _injetarEstilos();
+    let lista = Array.isArray(indicadores) ? indicadores : [];
+    let abertoId = null;       // id do indicador aberto, ou "__lista" para lista avulsa
+    let posicao = 0;
+
+    const registrosDe = ind => {
+      try {
+        const r = typeof ind.registros === "function" ? ind.registros() : ind.registros;
+        return Array.isArray(r) ? r : [];
+      } catch (e) { console.error("FenixCore.dashboard: erro em registros de", ind.id, e); return []; }
+    };
+
+    const grade = document.createElement("div");
+    grade.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;";
+    const painel = document.createElement("div");
+    painel.style.cssText = "margin-top:12px;display:none;";
+    painel.setAttribute("role", "region");
+    raiz.textContent = "";
+    raiz.append(grade, painel);
+
+    function fechar() {
+      if (abertoId === null) return;
+      abertoId = null;
+      painel.style.display = "none";
+      painel.textContent = "";
+      grade.querySelectorAll(".fx-dash-card").forEach(b => b.setAttribute("aria-expanded", "false"));
+      window.scrollTo(0, posicao);
+    }
+
+    function mostrarLista(id, titulo, registros, cfg) {
+      if (abertoId === null) posicao = window.scrollY || 0;
+      abertoId = id;
+      grade.querySelectorAll(".fx-dash-card").forEach(b => b.setAttribute("aria-expanded", String(b.dataset.id === id)));
+      painel.textContent = "";
+      painel.style.display = "block";
+      painel.setAttribute("aria-label", titulo);
+      const topo = document.createElement("div");
+      topo.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px;";
+      const h = document.createElement("strong");
+      h.style.cssText = "color:#041273;font-size:16px;";
+      h.textContent = titulo;
+      const bFechar = document.createElement("button");
+      bFechar.type = "button"; bFechar.className = "fx-btn"; bFechar.textContent = "Fechar";
+      bFechar.addEventListener("click", fechar);
+      topo.append(h, bFechar);
+      painel.appendChild(topo);
+      const rot = cfg.rotuloRegistro || (r => (r && (r.nome || r.titulo || r.descricao || r.id)) || String(r));
+      registros.forEach(reg => {
+        const clicavel = typeof cfg.aoAbrirRegistro === "function";
+        const el = document.createElement(clicavel ? "button" : "div");
+        if (clicavel) el.type = "button";
+        el.className = "fx-dash-item";
+        const l1 = document.createElement("div");
+        l1.style.fontWeight = "600";
+        l1.textContent = String(rot(reg));
+        el.appendChild(l1);
+        if (typeof cfg.detalheRegistro === "function") {
+          const d = cfg.detalheRegistro(reg);
+          if (d) {
+            const l2 = document.createElement("div");
+            l2.style.cssText = "font-size:13px;color:#555b80;";
+            l2.textContent = String(d);
+            el.appendChild(l2);
+          }
+        }
+        if (clicavel) el.addEventListener("click", () => cfg.aoAbrirRegistro(reg, cfg.indicador || null));
+        painel.appendChild(el);
+      });
+      painel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    function abrir(id) {
+      const ind = lista.find(i => i.id === id);
+      if (!ind) return false;
+      const regs = registrosDe(ind);
+      if (!regs.length) return false;
+      if (abertoId === id) { fechar(); return true; }
+      mostrarLista(id, ind.rotulo + " (" + regs.length + ")", regs, {
+        rotuloRegistro: ind.rotuloRegistro || opcoes.rotuloRegistro,
+        detalheRegistro: ind.detalheRegistro || opcoes.detalheRegistro,
+        aoAbrirRegistro: ind.aoAbrirRegistro || opcoes.aoAbrirRegistro,
+        indicador: ind
+      });
+      return true;
+    }
+
+    function desenhar() {
+      grade.textContent = "";
+      lista.forEach(ind => {
+        const regs = registrosDe(ind);
+        const temDados = regs.length > 0;
+        let valor = ind.valor !== undefined ? ind.valor : regs.length;
+        if (typeof ind.valor === "number" && !ind.moeda && ind.valor !== regs.length) {
+          console.warn("FenixCore.dashboard: o valor de '" + ind.rotulo + "' (" + ind.valor + ") difere da quantidade de registros (" + regs.length + ").");
+        }
+        const texto = ind.moeda ? _formatarMoedaBR(valor) : String(valor);
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "fx-dash-card";
+        b.dataset.id = ind.id;
+        b.setAttribute("aria-expanded", "false");
+        if (!temDados) b.setAttribute("aria-disabled", "true");
+        const r = document.createElement("div");
+        r.style.cssText = "font-size:13px;color:#555b80;";
+        r.textContent = ind.rotulo;
+        const v = document.createElement("div");
+        v.style.cssText = "font-size:26px;font-weight:700;color:#041273;";
+        v.textContent = texto;
+        b.append(r, v);
+        if (!temDados) {
+          const n = document.createElement("div");
+          n.style.cssText = "font-size:12px;color:#555b80;";
+          n.textContent = "Nenhum registro";
+          b.appendChild(n);
+        }
+        b.addEventListener("click", () => { if (temDados) abrir(ind.id); });
+        grade.appendChild(b);
+      });
+      if (abertoId && abertoId !== "__lista") {
+        const aindaAberto = abertoId;
+        abertoId = null;
+        if (!abrir(aindaAberto)) { painel.style.display = "none"; painel.textContent = ""; }
+      }
+    }
+
+    raiz.addEventListener("keydown", ev => { if (ev.key === "Escape") fechar(); });
+    desenhar();
+
+    return {
+      abrir,
+      fechar,
+      /** Abre uma lista avulsa (ex.: fatia de um gráfico), no mesmo painel. */
+      abrirLista(titulo, registros, cfg = {}) {
+        mostrarLista("__lista", titulo, Array.isArray(registros) ? registros : [], {
+          rotuloRegistro: cfg.rotuloRegistro || opcoes.rotuloRegistro,
+          detalheRegistro: cfg.detalheRegistro || opcoes.detalheRegistro,
+          aoAbrirRegistro: cfg.aoAbrirRegistro || opcoes.aoAbrirRegistro
+        });
+      },
+      /** Redesenha com os dados atuais (e com novos indicadores, se informados). */
+      atualizar(novos) {
+        if (Array.isArray(novos)) lista = novos;
+        desenhar();
+      }
+    };
+  }
+};
+
+// ============================================================================
+// 18. CNPJ COMPLETO — consulta do CNPJ com endereço completado pelo CEP
+// ============================================================================
+/**
+ * Livro das Regras, regra 35. Métodos NOVOS (nada existente foi alterado):
+ *
+ *   FenixCore.pessoas.consultarCNPJ(cnpj)
+ *     Consulta o CNPJ (BrasilAPI, o mesmo de buscarNaReceita) e devolve o
+ *     mesmo objeto, com Razão Social, Endereço (logradouro), Número, Bairro,
+ *     CEP, Cidade e UF em dados.endereco. Se a API do CNPJ trouxer só o CEP
+ *     (sem logradouro, bairro, cidade ou UF), complementa sozinha pela
+ *     BrasilAPI (consulta de CEP), sem o usuário redigitar nada. Só preenche
+ *     o que faltou: o que veio do CNPJ nunca é sobrescrito.
+ *     Campos extras no retorno:
+ *       origemEndereco:  "receita" | "receita+brasilapi-cep"
+ *       enderecoCompleto: true se logradouro, bairro, cidade e UF vieram
+ *     Retorna null se o CNPJ não for encontrado; lança erro se for inválido.
+ *     Não lê nem grava no Firestore (funciona com o banco desligado).
+ *
+ *   FenixCore.localidades.buscarPorCEPBrasilAPI(cep)
+ *     Consulta o CEP na BrasilAPI e devolve { cep, logradouro, bairro,
+ *     cidade, uf, origem: "brasilapi-cep" }, ou null se não achar. Também
+ *     não usa o Firestore.
+ *
+ * Exemplo:
+ *   try {
+ *     const d = await FenixCore.pessoas.consultarCNPJ(cnpjDigitado);
+ *     if (d) { razao.value = d.razaoSocial; rua.value = d.endereco.logradouro; ... }
+ *     if (d && !d.enderecoCompleto) { // deixe os campos editáveis para conferir }
+ *   } catch (e) { // CNPJ inválido ou sem internet }
+ */
+
+const _SO_TIPO_LOGRADOURO = /^(RUA|AVENIDA|AV|TRAVESSA|TV|PRAÇA|PRACA|ALAMEDA|RODOVIA|ESTRADA|LARGO|VIA|LOTEAMENTO|QUADRA|CONJUNTO|BECO|VIELA)\.?$/i;
+
+Object.assign(localidades, {
+  async buscarPorCEPBrasilAPI(cep) {
+    const cepLimpo = limparDocumento(cep);
+    if (cepLimpo.length !== 8) throw new Error("CEP inválido: " + cep);
+    const resp = await fetch(`https://brasilapi.com.br/api/cep/v2/${cepLimpo}`);
+    if (!resp.ok) return null;                 // CEP não encontrado ou API indisponível
+    const dados = await resp.json();
+    if (!dados || dados.errors || dados.type === "service_error") return null;
+    return {
+      cep: cepLimpo,
+      logradouro: formatarTitulo(dados.street || ""),
+      bairro: formatarTitulo(dados.neighborhood || ""),
+      cidade: formatarTitulo(dados.city || ""),
+      uf: (dados.state || "").toString().trim().toUpperCase(),
+      origem: "brasilapi-cep"
+    };
+  }
+});
+
+Object.assign(pessoas, {
+  async consultarCNPJ(cnpj) {
+    const dados = await pessoas.buscarNaReceita(cnpj);   // lança erro se inválido; null se não achou
+    if (!dados) return null;
+    const e = dados.endereco;
+    // O CNPJ às vezes traz só o tipo ("RUA") sem o nome: conta como logradouro ausente.
+    if (_SO_TIPO_LOGRADOURO.test((e.logradouro || "").trim())) e.logradouro = "";
+    const falta = () => !e.logradouro || !e.bairro || !e.cidade || !e.uf;
+    dados.origemEndereco = "receita";
+    const cepLimpo = limparDocumento(e.cep);
+    if (falta() && cepLimpo.length === 8) {
+      try {
+        const c = await localidades.buscarPorCEPBrasilAPI(cepLimpo);
+        if (c) {
+          if (!e.logradouro) e.logradouro = c.logradouro;
+          if (!e.bairro) e.bairro = c.bairro;
+          if (!e.cidade) e.cidade = c.cidade;
+          if (!e.uf) e.uf = c.uf;
+          dados.origemEndereco = "receita+brasilapi-cep";
+        }
+      } catch (err) {
+        console.warn("FenixCore.pessoas.consultarCNPJ: não foi possível completar o endereço pelo CEP:", err);
+      }
+    }
+    dados.enderecoCompleto = !falta();
+    return dados;
+  }
+});
 
 // ============================================================================
 // EXPORTAÇÃO
@@ -1296,7 +1904,6 @@ function criarModuloSincronia(db, uid, nomeApp) {
 export const FenixCore = {
   init,
   initFirebase,
-  initFirebaseComCache,
   criarModuloAuth,
   criarModuloEmpresas,
   criarModuloConvites,
@@ -1307,12 +1914,13 @@ export const FenixCore = {
   criarModuloFamiliasMateriais,
   criarModuloCatalogoEmpresa,
   criarModuloPessoas,
-  criarModuloSincronia,
   pessoas,
   produtos,
   localidades,
   backup,
   sobre,
+  manual,
+  dashboard,
   validarCPF,
   validarCNPJ,
   formatarCPF,
@@ -1346,7 +1954,7 @@ export const FenixCore = {
  *     aoFazerBackup: () => FenixCore.backup.baixarJSON("fenix-financiamentos", meusDados)
  *   });
  *
- *   // Dados da Fênix (rodapé, documentos): FenixCore.EMPRESA.cnpjFormatado, FenixCore.EMPRESA.email
+ *   // Dados da Fênix (rodapé, documentos): FenixCore.EMPRESA.razaoSocial, FenixCore.EMPRESA.cnpjFormatado, FenixCore.EMPRESA.email
  *
  *   // Ao digitar o CPF do cliente no formulário:
  *   const cpfDigitado = "12345678900";
