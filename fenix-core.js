@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.1
+ * FÊNIX CORE v3.2
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
@@ -14,7 +14,7 @@
  * nunca mais precisa mudar.
  *
  * URL ÚNICA E CENTRALIZADA (usar sempre com barra simples):
- *   https://fenicris-dev.github.io/Fenix-Core/fenix-core.js
+ *   https://fenicris-dev.github.io/Fenix_Core/fenix-core.js
  *
  * Módulo central de dados compartilhados entre todos os apps Fênix
  * ============================================================================
@@ -34,7 +34,7 @@
  * <script> comum. Em qualquer app, use um bloco <script type="module">:
  *
  *   <script type="module">
- *     import { FenixCore } from "https://fenicris-dev.github.io/Fenix-Core/fenix-core.js";
+ *     import { FenixCore } from "https://fenicris-dev.github.io/Fenix_Core/fenix-core.js";
  *     FenixCore.init("nome-do-seu-app");   // uma vez só, no carregamento do app
  *     // depois use: FenixCore.pessoas.buscar(cpfOuCnpj), etc.
  *   </script>
@@ -207,6 +207,8 @@
         código é idêntico ao da v2.5.
  * v3.1 — Nivelamento com o Livro das Regras v3.1 (ícone provisório e splash
         em todos os apps, regras 17 e 32). Nenhuma função foi alterada.
+ * v3.2 — Novo endereço oficial: https://fenicris-dev.github.io/Fenix_Core/
+        fenix-core.js (Livro das Regras v3.2). Nenhuma função foi alterada.
  * ============================================================================
  */
 
@@ -1943,7 +1945,7 @@ export const FenixCore = {
  * ============================================================================
  *
  * <script type="module">
- *   import { FenixCore } from "https://fenicris-dev.github.io/Fenix-Core/fenix-core.js";
+ *   import { FenixCore } from "https://fenicris-dev.github.io/Fenix_Core/fenix-core.js";
  *
  *   FenixCore.init("fenix-financiamentos");
  *
