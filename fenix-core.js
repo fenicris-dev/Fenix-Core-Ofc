@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.0
+ * FÊNIX CORE v3.1
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
@@ -205,6 +205,8 @@
         o mesmo número; por isso o core salta da 2.5 para a 3.0 (exceção única,
         registrada no Histórico do livro). Nenhuma função foi alterada: o
         código é idêntico ao da v2.5.
+ * v3.1 — Nivelamento com o Livro das Regras v3.1 (ícone provisório e splash
+        em todos os apps, regras 17 e 32). Nenhuma função foi alterada.
  * ============================================================================
  */
 
