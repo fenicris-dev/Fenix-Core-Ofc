@@ -1,0 +1,10 @@
+Biblioteca Fênix v3.5
+
+Raiz do repositório: index.html, fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html
+Icon/   : Fenix_Icone_128.png (novo; os demais ícones já estão no repositório)
+Termos/ : fenix-termos-de-uso.html, fenix-politica-de-privacidade.html
+MD/     : fenix-livro-das-regras.md
+DOC/    : fenix-livro-das-regras.docx
+versoes/: cópias com a versão no nome, só para controle interno (nenhum app aponta para elas)
+
+Depois de publicar, abra https://fenicris-dev.github.io/Fenix-Core/ e toque em "Testar tudo".
