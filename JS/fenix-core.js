@@ -1,13 +1,13 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.3
+ * FÊNIX CORE v3.4
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
  * na URL): é a cópia publicada e referenciada por todos os apps. A cada nova
  * versão é entregue também uma cópia idêntica com a versão no nome (ex:
  * fenix-core-v2.1.js), usada só para controle temporal/histórico — nenhum app
- * deve apontar para ela. O mesmo vale para o index de qualquer app:
+ * deve apontar para ela. O mesmo vale para o index.html (Painel da biblioteca):
  * index.html (publicado) + cópia com a versão no nome (histórico). A versão
  * também é registrada aqui, no comentário de topo (ver Histórico de Versões
  * abaixo). Assim, cada app aponta para o endereço UMA vez, pra sempre, e
@@ -210,6 +210,8 @@
  * v3.2 — (cancelada: endereço com sublinhado, Fenix_Core, que não existe.)
  * v3.3 — Endereço oficial confirmado: https://fenicris-dev.github.io/Fenix-Core/
         fenix-core.js (hífen). Nenhuma função foi alterada.
+ * v3.4 — Nivelamento com o Livro das Regras v3.4 (index.html vira o Painel da
+        biblioteca). Nenhuma função foi alterada.
  * ============================================================================
  */
 
