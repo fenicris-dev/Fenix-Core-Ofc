@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.5
+ * FÊNIX CORE v3.6
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
@@ -216,6 +216,8 @@
         FenixCore.localidades.buscarPorCEPSemBanco(cep), que consulta o ViaCEP
         e devolve o endereço SEM gravar nada no Firestore (para apps com o banco
         ainda desligado). buscarPorCEP continua igual, para quem usa o banco.
+ * v3.6 — Nivelamento com o Livro das Regras v3.6 (entrega também em .zip).
+        Nenhuma função foi alterada.
  * ============================================================================
  */
 

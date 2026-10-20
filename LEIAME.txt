@@ -1,7 +1,7 @@
-Biblioteca Fênix v3.5
+Biblioteca Fênix v3.6
 
 Raiz do repositório: index.html, fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html
-Icon/   : Fenix_Icone_128.png (novo; os demais ícones já estão no repositório)
+Icon/   : Fenix_Icone_128.png (os demais ícones já estão no repositório)
 Termos/ : fenix-termos-de-uso.html, fenix-politica-de-privacidade.html
 MD/     : fenix-livro-das-regras.md
 DOC/    : fenix-livro-das-regras.docx
