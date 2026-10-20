@@ -1,10 +1,10 @@
-Biblioteca Fênix v3.6
+Biblioteca Fênix v3.7
 
-Raiz do repositório: index.html, fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html
+Raiz do repositório: index.html (Painel), fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html
 Icon/   : Fenix_Icone_128.png (os demais ícones já estão no repositório)
 Termos/ : fenix-termos-de-uso.html, fenix-politica-de-privacidade.html
-MD/     : fenix-livro-das-regras.md
-DOC/    : fenix-livro-das-regras.docx
+MD/     : fenix-livro-das-regras.md, fenix-guia-da-biblioteca.md (guia e changelog da biblioteca)
+DOC/    : fenix-livro-das-regras.docx, fenix-guia-da-biblioteca.docx
 versoes/: cópias com a versão no nome, só para controle interno (nenhum app aponta para elas)
 
-Depois de publicar, abra https://fenicris-dev.github.io/Fenix-Core/ e toque em "Testar tudo".
+Depois de publicar, abra https://fenicris-dev.github.io/Fenix-Core/, toque em "Testar tudo" e, no grupo "Testes ao vivo", em "Rodar testes ao vivo".

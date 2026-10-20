@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.6
+ * FÊNIX CORE v3.7
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
@@ -218,6 +218,8 @@
         ainda desligado). buscarPorCEP continua igual, para quem usa o banco.
  * v3.6 — Nivelamento com o Livro das Regras v3.6 (entrega também em .zip).
         Nenhuma função foi alterada.
+ * v3.7 — Nivelamento com o Livro das Regras v3.7 (Guia da biblioteca e testes ao
+        vivo no Painel). Nenhuma função foi alterada.
  * ============================================================================
  */
 
