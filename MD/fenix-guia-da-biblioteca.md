@@ -1,4 +1,4 @@
-# GUIA DA BIBLIOTECA FÊNIX (v3.6)
+# GUIA DA BIBLIOTECA FÊNIX (v3.9)
 
 Este guia explica, em português claro, tudo o que existe na biblioteca Fênix: o que cada função do Fênix Core faz e para que serve cada regra do Livro das Regras. Ele também funciona como o **Changelog da biblioteca** (Parte 4). Acompanha todo pacote novo e é atualizado a cada versão, junto com o livro, o core, os templates e os documentos legais, que andam sempre com o mesmo número (regra 7).
 
@@ -9,7 +9,8 @@ Endereço base de tudo: https://fenicris-dev.github.io/Fenix-Core/
 | Arquivo | Onde fica | Para que serve |
 |----------------------------------------|------------------|------------------------------------------|
 | `fenix-core.js` | raiz | Biblioteca de funções que todo app carrega (módulo ES, exporta `FenixCore`). |
-| `index.html` | raiz | Painel da biblioteca: testa cada endereço oficial e confere se tudo está na mesma versão. |
+| `index.html` | raiz | Painel da biblioteca: testa cada endereço oficial, confere se tudo está na mesma versão e roda testes ao vivo de CNPJ e CEP. |
+| `firestore.rules` | raiz | Proposta de regras de segurança do Firestore para as coleções do core (regra 46). Só vale depois que você comparar com o console e publicar. |
 | `fenix-template-login.html` | raiz | Layout oficial de login de todo app com senha. |
 | `fenix-template-onboarding.html` | raiz | Layout oficial da tela de primeiro acesso. |
 | `Icon/Fenix_Icone_64, 128, 192, 512.png` | pasta `Icon/` | Ícone da águia (branca sobre o degradê): favicon, cabeçalho, PWA, splash e ícone provisório. |
@@ -19,7 +20,7 @@ Endereço base de tudo: https://fenicris-dev.github.io/Fenix-Core/
 | `MD/fenix-livro-das-regras.md`, `DOC/fenix-livro-das-regras.docx` | pastas `MD/` e `DOC/` | O Livro das Regras. |
 | `MD/fenix-guia-da-biblioteca.md`, `DOC/fenix-guia-da-biblioteca.docx` | pastas `MD/` e `DOC/` | Este guia. |
 
-Todo material com versão tem duas cópias (regra 11): a **neutra**, sem versão no nome (é a que os apps usam), e a **com versão no nome** (`-v3.6`), só para controle interno.
+Todo material com versão tem duas cópias (regra 11): a **neutra**, sem versão no nome (é a que os apps usam), e a **com versão no nome** (`-v3.9`), só para controle interno.
 
 ## PARTE 2. O FÊNIX CORE, FUNÇÃO POR FUNÇÃO
 
@@ -128,8 +129,36 @@ Todos usam o banco e recebem o `app` ou o `db` que vem do `initFirebase`.
 
 Todo app nasce com o banco desligado (regra 1). Enquanto `FENIX_BANCO_ATIVO` for `false`, use só:
 
-- **Sem banco, pode usar:** `EMPRESA`, `CPF_CNPJ_DISCLOSURE`, as ferramentas de texto e documento (2.3), `pessoas.buscarNaReceita`, `pessoas.consultarCNPJ`, `localidades.buscarPorCEPSemBanco`, `localidades.buscarPorCEPBrasilAPI`, `backup`, `sobre`, `manual` e `dashboard`.
+- **Sem banco, pode usar:** `EMPRESA`, `CPF_CNPJ_DISCLOSURE`, as ferramentas de texto e documento (2.3), `pessoas.buscarNaReceita`, `pessoas.consultarCNPJ`, `localidades.buscarPorCEPSemBanco`, `localidades.buscarPorCEPBrasilAPI`, `backup`, `sobre`, `manual`, `dashboard` e `mascaras`.
 - **Precisam do banco ativo:** `pessoas.buscar`, `salvar`, `salvarFisica`, `salvarJuridica`, `buscarPorNome`; `produtos.*`; `localidades.buscarPorCEP`, `buscarCidadesPorUF`, `buscarBairros`, `registrarBairro`; e todos os módulos `criarModulo...`.
+
+### 2.13 Máscaras automáticas ao digitar (`FenixCore.mascaras`, não usa banco)
+
+O campo se formata sozinho enquanto o usuário digita. Ninguém precisa pedir: vale para todo campo com formato fixo (regra 38).
+
+**Como ligar:** no HTML escreva `<input data-mask="cpfcnpj">` e, uma vez, depois do carregamento do core, `FenixCore.mascaras.auto()`. Campos que aparecerem depois na tela (um modal, uma lista) também são cobertos. O cursor se mantém quando se edita no meio do texto.
+
+| Tipo (`data-mask`) | Como se comporta | Exemplo |
+|--------------------------------|-----------------------------------------------|-----------------------------------|
+| `cpfcnpj` | Até 11 dígitos é CPF; passou de 11 vira CNPJ. Apagando de volta, volta a CPF. | `11111111111` vira `111.111.111-11`; mais três dígitos: `11.111.111/1111-11` |
+| `cpf`, `cnpj` | Só um dos dois. | |
+| `moeda` | Os dígitos entram pelos centavos; o ponto dos milhares aparece sozinho. | 1 vira `R$ 0,01`; 100 vira `R$ 1,00`; 1000 vira `R$ 10,00`; 123456 vira `R$ 1.234,56` |
+| `percentual` | Igual à moeda, com `%`. | `1250` vira `12,50%` |
+| `telefone` | Escolhe fixo ou celular pelo primeiro dígito depois do DDD (9 é celular). | `79999680880` vira `(79) 9 9968-0880`; `7932221234` vira `(79) 3222-1234` |
+| `cep` | Traço depois do quinto dígito. | `49000000` vira `49000-000` |
+| `data`, `hora` | `dd/mm/aaaa` e `HH:mm`. | `25122026` vira `25/12/2026` |
+| `placa` | Maiúsculas; formato antigo (`ABC-1234`) ou Mercosul (`ABC1D23`). | |
+| `ip`, `mac` | IP com pontos (cada parte até 255) e MAC com dois pontos, maiúsculo. Úteis em CFTV. | `192168001010` vira `192.168.001.010` |
+| `numero` | Só dígitos. | |
+
+**Funções de apoio** (todas devolvem texto ou valor, sem mexer na tela):
+- **`mascaras.cpf`, `cnpj`, `cpfCnpj`, `cep`, `telefone`, `moeda`, `percentual`, `data`, `hora`, `placa`, `ip`, `mac`, `numero`:** formatam um texto, para exibir um valor guardado.
+- **`mascaras.moedaParaNumero("R$ 1.234,56")`:** devolve `1234.56`, para guardar e calcular. **`numeroParaMoeda(1234.56)`** faz o caminho contrário.
+- **`mascaras.dataParaISO("25/12/2026")`:** devolve `2026-12-25`, ou `null` se a data não existe.
+- **`mascaras.valorLimpo(tipo, texto)`:** o valor para guardar (só dígitos, número, data ISO...).
+- **`mascaras.aplicar(campo, tipo)`:** liga a máscara a um campo sem usar `data-mask`. **`definirValor(campo, valor)`:** põe um valor no campo já mascarado (número, no caso da moeda).
+
+**Atenção:** na moeda, as máscaras não aceitam valor negativo, e o valor inicial de um campo deve ser posto com `definirValor`, não direto no `value`.
 
 ## PARTE 3. O LIVRO DAS REGRAS, REGRA POR REGRA
 
@@ -142,7 +171,7 @@ Todo app nasce com o banco desligado (regra 1). Enquanto `FENIX_BANCO_ATIVO` for
 6. **Hospedagem.** GitHub Pages.
 
 ### Seção 2. Versionamento e entrega
-7. **Sequência de versões.** 1.0, 1.1, ... 1.9, 2.0, sem pular e com uma casa decimal. Livro, core, templates e documentos legais andam juntos com o mesmo número. O salto da v3.0 foi a única exceção.
+7. **Sequência de versões.** 1.0, 1.1, ... 1.9, 2.0, sem pular e com uma casa decimal. Livro, guia, core, regras do Firestore, templates e documentos legais andam juntos com o mesmo número. O salto da v3.0 foi a única exceção.
 8. **Toda alteração sobe a versão**, inclusive no arquivo baixável.
 9. **Dizer a versão** no texto da resposta de toda entrega.
 10. **Nome do arquivo** `fenix-nome-do-app-vX.X.html`, sempre com a cópia neutra.
@@ -179,9 +208,9 @@ Todo app nasce com o banco desligado (regra 1). Enquanto `FENIX_BANCO_ATIVO` for
 35. **Fluxo do CNPJ** em qualquer tela que capture CNPJ: use `consultarCNPJ` e liste Razão Social, Endereço, Número, Bairro, CEP, Cidade e UF; tudo continua editável.
 36. **Alternância PF/PJ** mantendo os campos comuns.
 37. **Aviso de uso do CPF/CNPJ** sempre abaixo dos campos.
-38. **Máscaras** de CPF, CNPJ, CEP, celular e fixo enquanto digita, com validação dos dígitos.
-39. **Moeda** no padrão `R$ 0.000,00`, na exibição e na digitação.
-40. **Datas** em dd/mm/aaaa e horas em 24 h; guardar em formato ISO.
+38. **Máscaras automáticas** enquanto digita (CPF e CNPJ no mesmo campo, CEP, telefone, moeda, percentual, data, hora, placa, IP, MAC, número), ligadas por `data-mask` e `FenixCore.mascaras.auto()`; validação dos dígitos de CPF e CNPJ à parte. Nunca máscara própria.
+39. **Moeda** no padrão `R$ 0.000,00`, na exibição e na digitação (`data-mask="moeda"`, dígitos pelos centavos).
+40. **Datas** em dd/mm/aaaa e horas em 24 h; guardar em formato ISO (`data-mask="data"` e `"hora"`).
 41. **Pessoas só pelo core:** nenhum app cria coleção própria de clientes; guarda a referência e, no máximo, um cache leve.
 42. **Padronização de escrita** ao salvar: nomes em MAIÚSCULAS, demais textos com iniciais maiúsculas, e-mail em minúsculas, UF em maiúsculas.
 43. **Ficha de produto ou equipamento:** base sempre Marca, Modelo e Série; campos extras por categoria.
@@ -189,7 +218,7 @@ Todo app nasce com o banco desligado (regra 1). Enquanto `FENIX_BANCO_ATIVO` for
 45. **PDF** com cabeçalho padrão: logo Azul e dados da empresa do perfil.
 
 ### Seção 6. Segurança e qualidade
-46. **Regras do Firestore:** nenhuma coleção aberta; cada usuário só lê e grava os próprios dados; as regras seguem junto com a entrega.
+46. **Regras do Firestore:** nenhuma coleção aberta; cada usuário só lê e grava os próprios dados; as regras seguem junto com a entrega, partindo do arquivo-base `firestore.rules` da biblioteca (veja o quadro "firestore.rules, bloco por bloco" depois da Seção 9).
 47. **Ações destrutivas** exigem digitar uma palavra (ex.: APAGAR). Nunca o `confirm()` do navegador.
 48. **Validar o JS** com `node --check` (retorno 0) e chaves balanceadas.
 49. **Testar** em tela de 360 px e sem internet.
@@ -203,11 +232,26 @@ Todo app nasce com o banco desligado (regra 1). Enquanto `FENIX_BANCO_ATIVO` for
 ### Seção 8. Dashboard
 54. **Dashboard clicável:** todo indicador com dados abre os registros que o formam, com o mesmo número; zerado mostra "Nenhum registro"; vale também para gráficos e valores em R$. Use `dashboard.montar`.
 
+### Seção 9. Trazer um app antigo ao padrão
+55. **Roteiro do app antigo:** quando um app existente vem para alteração: (a) ler o selo (sem selo, aplicar tudo; selo antigo, só o que o Histórico indica); (b) preencher a Ficha; (c) fazer o inventário do que o app cumpre e do que falta, regra por regra, e mostrar antes de mexer; (d) proteger os dados: chaves e formatos do localStorage e das coleções não mudam sem migração e backup; (e) aplicar em cinco etapas, cada uma testada: 1) core, banco desligado e selo, 2) identidade, 3) acesso, 4) cadastros e máscaras, 5) qualidade (Changelog e Manual, Sobre, backup, PDF e dashboard); (f) não mexer em telas que não foram pedidas e avisar quando uma regra conflitar com algo do app; (g) entregar pelo Como entregar, com a sequência de versões do próprio app e a Ficha no Changelog; (h) anotar o app em Apps já no padrão.
+
+### firestore.rules, bloco por bloco
+O arquivo está na raiz da biblioteca. É uma **proposta**: compare com o que está publicado no console do Firebase (projeto fenix-core) antes de publicar e teste no "Playground de regras". Tudo que não está liberado é negado.
+- **Funções de apoio:** `logado`, `ehMembro` (membro aprovado da empresa), `ehDono` (membro aprovado com papel dono) e `vinculoCombinaComMembro`.
+- **`empresas/{id}`:** qualquer usuário logado cria a própria empresa (o `donoUid` tem de ser ele); só membros leem; só o dono altera ou apaga.
+- **`membros`:** o dono cria o próprio registro ao criar a empresa e quem aceita convite cria o seu como técnico; só o dono altera; o dono ou o próprio usuário apaga.
+- **Resto da empresa** (pessoas, `appData`, materiais, famílias, produtos e serviços, coleções de cada app): só membros aprovados leem e gravam.
+- **`usuarios_empresa/{uid}`:** o usuário lê e grava só o próprio vínculo, e só se bater com o registro de membro dele; o dono pode apagar o vínculo de quem remover.
+- **`convites/{token}`:** só o dono cria e cancela; o convidado só marca como usado, uma vez; ler um convite exige estar logado (se um app lê antes do login, a linha tem um aviso de como liberar); ninguém apaga.
+- **Base compartilhada** (`pessoas_fisicas`, `pessoas_juridicas`, `produtos_servicos`, `cidades` e `bairros`): usuário logado lê e grava, porque o core a desenhou comum a todos os apps. Só importa com o banco ativo.
+- **Limitação conhecida:** a regra não confere o token do convite ao criar o registro de técnico, porque o core não o grava no registro. Quem soubesse o código aleatório da empresa poderia entrar como técnico. Para fechar, o core precisaria gravar o token (mudança só de acréscimo, a combinar).
+- **Coleção própria de um app:** há um modelo comentado no fim do arquivo (dados só do dono).
+
 ### Seções finais do livro
-- **Ficha de aplicação:** sempre valem as regras 1 a 3, 5 a 22, 39, 40 e 47 a 53. Grupos marcáveis: A banco ativo (4, 46), B login (23 a 32), C PF/PJ (33 a 38, 41, 42), D produto (43), E backup (44), F PDF (45), G dashboard (54).
+- **Ficha de aplicação:** sempre valem as regras 1 a 3, 5 a 22, 39, 40, 47 a 53 e 55. Grupos marcáveis: A banco ativo (4, 46), B login (23 a 32), C PF/PJ (33 a 38, 41, 42), D produto (43), E backup (44), F PDF (45), G dashboard (54).
 - **Histórico do livro:** diz o que cada versão muda para os apps e se afeta ou não.
 - **Endereços oficiais:** a lista única de endereços; só use os dela.
-- **Como entregar:** declarar a versão; nome padrão; selo e Ficha no Changelog; manual MD e PDF; duas cópias; rodar o Painel e tocar em "Testar tudo"; zip com `LEIAME.txt` quando houver mais de um arquivo; avisar se um pedido contrariar o livro.
+- **Como entregar:** declarar a versão; nome padrão; selo e Ficha no Changelog; manual MD e PDF; duas cópias; guia da biblioteca atualizado; rodar o Painel e tocar em "Testar tudo"; zip com `LEIAME.txt` quando houver mais de um arquivo; avisar se um pedido contrariar o livro.
 - **Apps já no padrão:** anotação numerada dos apps que já seguem o livro.
 
 ## PARTE 4. CHANGELOG DA BIBLIOTECA
@@ -215,6 +259,9 @@ Todo app nasce com o banco desligado (regra 1). Enquanto `FENIX_BANCO_ATIVO` for
 Cada linha diz o que mudou e o que isso exige dos apps. As versões v1.x e v2.x do core vieram antes do livro atual; as versões v3.x são niveladas entre livro, core, templates e documentos legais.
 
 ### Versões v3.x (niveladas)
+- **v3.9**: máscaras automáticas em todo campo com formato fixo (regras 38 a 40): novo `FenixCore.mascaras`, ligado por `data-mask` e `mascaras.auto()`; CPF e CNPJ no mesmo campo, moeda pelos centavos, telefone, CEP, data, hora, placa, IP, MAC, percentual e número. O Painel testa as máscaras e tem um grupo para digitar. Apps: SIM, na próxima alteração cada app troca as máscaras próprias pelas do core.
+- **v3.8**: nova regra 55 (roteiro para trazer um app antigo ao padrão, seção 9). Novo arquivo-base `firestore.rules` (proposta de regras do Firestore para as coleções do core), com duas cópias, nos Endereços oficiais e no Painel; a regra 46 aponta para ele. Apps: nada.
+- **v3.7**: o Guia da biblioteca entra no conjunto (mesma versão, duas cópias, endereços oficiais, Como entregar e Painel). O Painel ganha testes ao vivo de CNPJ e CEP, que rodam `consultarCNPJ`, `buscarPorCEPSemBanco` e `buscarPorCEPBrasilAPI` com a internet real, sem gravar no banco. Apps: nada.
 - **v3.6**: entrega com mais de um arquivo leva também um `.zip` com `LEIAME.txt`. Este guia nasce nesta versão. Apps: só na entrega.
 - **v3.5**: nova função `localidades.buscarPorCEPSemBanco` (ViaCEP sem gravar no banco). A data dos Termos e da Política só muda quando o texto muda. Entrega termina com o Painel e "Testar tudo". Apps: troque para `buscarPorCEPSemBanco` se consultam CEP com o banco desligado.
 - **v3.4**: `index.html` vira o Painel da biblioteca. O template de login fica só em `fenix-template-login.html`. Apps: nada.
@@ -235,6 +282,8 @@ Cada linha diz o que mudou e o que isso exige dos apps. As versões v1.x e v2.x 
 - **v2.1**: anotação dos apps já no padrão. Apps: não.
 
 ### Fênix Core, funções acrescentadas (nada foi removido)
+- **v3.9**: `FenixCore.mascaras` (máscaras automáticas e funções de apoio, seção 2.13).
+- **v3.5**: `localidades.buscarPorCEPSemBanco`.
 - **v2.5**: `pessoas.consultarCNPJ` e `localidades.buscarPorCEPBrasilAPI`.
 - **v2.4**: `sobre.montarTela`, `changelogHTML`, `ordenarChangelog`, `datasDoApp`, `baixarChangelogPDF`; módulo `manual` (`paraHTML`, `montarTela`, `baixarPDF`); `dashboard.montar`.
 - **v2.3**: `EMPRESA.razaoSocial` e e-mail corrigido para `trampodofenix@gmail.com`; texto de uso atualizado para o carregador oficial.
@@ -256,8 +305,10 @@ Cada linha diz o que mudou e o que isso exige dos apps. As versões v1.x e v2.x 
 3. Crie a chave `FENIX_BANCO_ATIVO = false` e escreva as leituras e gravações do banco atrás dela (regra 1).
 4. Monte o login e o onboarding a partir dos templates (regras 23 e 29), o splash (32), o avatar (30 e 31) e o rodapé padrão (22).
 5. Use a paleta, o ícone e os logos oficiais; se não houver ícone próprio, use a águia (regras 14 a 17).
-6. Cadastros: CPF e CNPJ com máscara e validação, `consultarCNPJ`, CEP com `buscarPorCEPSemBanco` (regras 33 a 38).
+6. Cadastros: campos com `data-mask` e `FenixCore.mascaras.auto()` (CPF/CNPJ, CEP, telefone, moeda), validação de CPF e CNPJ, `consultarCNPJ`, CEP com `buscarPorCEPSemBanco` (regras 33 a 38).
 7. Moeda e datas no padrão brasileiro (39 e 40); ações destrutivas com palavra de confirmação (47).
 8. Backup com `verificarLembrete` e `baixarJSON` (44); Sobre com `registrarAcesso` e `montarTela` (13); dashboard com `dashboard.montar` (54).
 9. Escreva o Changelog e o Manual (com prints a 360 px), declare o selo e a ficha no `<head>` (12 e 53) e valide o JS e o app sem internet (48 e 49).
 10. Entregue o app nas duas cópias, o manual em MD e PDF e o zip; depois rode o Painel e toque em "Testar tudo".
+
+App que já existe? Em vez desta receita, siga o roteiro da regra 55 (selo, Ficha, inventário, proteção dos dados e cinco etapas).
