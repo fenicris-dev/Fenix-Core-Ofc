@@ -1,4 +1,4 @@
-Biblioteca Fênix v3.9
+Biblioteca Fênix v4.0
 
 Raiz do repositório: index.html (Painel), fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html, firestore.rules
 Icon/   : Fenix_Icone_128.png (os demais ícones já estão no repositório)
@@ -7,8 +7,9 @@ MD/     : fenix-livro-das-regras.md, fenix-guia-da-biblioteca.md (guia e changel
 DOC/    : fenix-livro-das-regras.docx, fenix-guia-da-biblioteca.docx
 versoes/: cópias com a versão no nome, só para controle interno (nenhum app aponta para elas)
 
-NOVO na v3.9: FenixCore.mascaras (máscaras automáticas ao digitar). No campo: data-mask="moeda" (ou cpfcnpj, telefone, cep, data, hora...) e, uma vez, FenixCore.mascaras.auto(). Veja a seção 2.13 do guia.
+ORDEM PARA PUBLICAR (importante):
+1) Suba todos os arquivos para o GitHub, principalmente o fenix-core.js v4.0 (ele passa a gravar o conviteToken no registro do técnico).
+2) Abra https://fenicris-dev.github.io/Fenix-Core/ e toque em "Testar tudo" e "Rodar testes ao vivo"; digite nos campos de "Testar máscaras".
+3) Só então copie o firestore.rules para o console do Firebase (Firestore > Regras), depois de testar no Playground de regras (roteiro na seção "firestore.rules, bloco por bloco" do guia). Subir o arquivo no GitHub NÃO altera o banco.
 
-ATENÇÃO: firestore.rules é uma PROPOSTA. Compare com as regras publicadas hoje no console do Firebase (projeto fenix-core) e teste no Playground de regras antes de publicar. Publicar o arquivo no GitHub não altera o banco.
-
-Depois de publicar, abra https://fenicris-dev.github.io/Fenix-Core/, toque em "Testar tudo", em "Rodar testes ao vivo" e, no grupo "Testar máscaras", digite nos campos.
+O que muda na v4.0: moeda no seu padrão (1 -> R$ 1; 10 -> R$ 1,0; 100 -> R$ 1,00; 1000 -> R$ 10,00; 010 -> R$ 0,10); máscaras novas ie, rg e uf; logos com nome com sublinhado (Fenix_Logo_Silver.png, Fenix_Logo_Gray.png); firestore.rules parte das regras publicadas e fecha 3 brechas.

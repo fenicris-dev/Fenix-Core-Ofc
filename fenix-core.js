@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.9
+ * FÊNIX CORE v4.0
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
@@ -226,6 +226,15 @@
         (CPF/CNPJ no mesmo campo, CEP, telefone, moeda pelos centavos, percentual,
         data, hora, placa, IP, MAC e número), ligadas por data-mask + mascaras.auto().
         Nada foi removido nem alterado nas funções existentes.
+ * v4.0 — (1) Moeda e percentual passam a seguir a regra do Cristiano: 1 dígito
+        = "1"; 2 = "1,0"; 3 = "1,00"; 4 = "10,00"; 6 = "1.000,00"; começando
+        com zero: "01" = "0,1" e "010" = "0,10". moedaParaNumero agora lê o
+        texto mostrado (vírgula decimal). (2) Novos tipos de máscara: ie
+        (inscrição estadual, com data-mask-uf; SE, BA e SP têm formato próprio),
+        rg (só dígitos e X) e uf (2 letras). (3) Convites: aceitarConvite grava
+        "conviteToken" no registro de membro (o firestore.rules v4.0 usa isso
+        para provar o convite) e recusa convite cancelado. Só acréscimos e
+        correções; nenhuma função foi removida.
  * ============================================================================
  */
 
@@ -843,7 +852,8 @@ function criarModuloConvites(db, baseUrl) {
         if (!snap.exists()) throw new Error("Convite não encontrado.");
         const convite = snap.data();
         if (convite.usado) throw new Error("Este convite já foi utilizado.");
-        return setDoc(doc(db, "empresas", convite.empresaId, "membros", uid), { email, papel: "tecnico", status: "aprovado", criadoEm: serverTimestamp() })
+        if (convite.cancelado) throw new Error("Este convite foi cancelado.");
+        return setDoc(doc(db, "empresas", convite.empresaId, "membros", uid), { email, papel: "tecnico", status: "aprovado", conviteToken: token, criadoEm: serverTimestamp() })
           .then(() => setDoc(doc(db, "usuarios_empresa", uid), { empresaId: convite.empresaId, papel: "tecnico", status: "aprovado" }))
           .then(() => updateDoc(refConvite, { usado: true, usadoPorUid: uid, usadoEm: serverTimestamp() }))
           .then(() => getDoc(doc(db, "empresas", convite.empresaId)))
@@ -1953,10 +1963,11 @@ Object.assign(pessoas, {
  *
  * Tipos: cpfcnpj (até 11 dígitos é CPF; passou de 11 vira CNPJ), cpf, cnpj,
  * cep, telefone (fixo ou celular), moeda, percentual, data, hora, placa,
- * ip, mac, numero. Campos que aparecerem depois na tela também são cobertos.
+ * ip, mac, numero, ie (com data-mask-uf="SE"), rg, uf. Campos que aparecerem depois na tela também são cobertos.
  *
- * Moeda: os dígitos entram pelos centavos. 1 -> R$ 0,01 | 10 -> R$ 0,10 |
- * 100 -> R$ 1,00 | 1000 -> R$ 10,00 | 123456 -> R$ 1.234,56.
+ * Moeda: 1 -> R$ 1 | 10 -> R$ 1,0 | 100 -> R$ 1,00 | 1000 -> R$ 10,00 |
+ * 10000 -> R$ 100,00 | 100000 -> R$ 1.000,00. Começando com zero:
+ * 01 -> R$ 0,1 | 010 -> R$ 0,10.
  *
  * Funções (todas devolvem texto, sem tocar na tela):
  *   mascaras.cpf / cnpj / cpfCnpj / cep / telefone / moeda / percentual /
@@ -1973,14 +1984,37 @@ Object.assign(pessoas, {
 const _soDigitos = v => String(v == null ? "" : v).replace(/\D/g, "");
 
 function _moedaBase(v, prefixo, sufixo, maxDigitos) {
-  const d = _soDigitos(v).replace(/^0+/, "").slice(0, maxDigitos).padStart(3, "0");
-  if (!_soDigitos(v).replace(/^0+/, "")) return "";
-  const inteiro = d.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return prefixo + inteiro + "," + d.slice(-2) + sufixo;
+  // Regra: sem zero na frente, 1 dígito = "1"; 2 = "1,0"; 3 em diante, os dois
+  // últimos são decimais ("1,00", "10,00", "1.000,00"). Com zero na frente,
+  // os dígitos seguintes são os decimais ("0,1", "0,10").
+  const d = _soDigitos(v).slice(0, maxDigitos);
+  if (!d) return "";
+  const milhar = x => x.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  let r;
+  if (d[0] === "0") {
+    const resto = d.slice(1);
+    if (resto.length <= 2) r = resto ? "0," + resto : "0";
+    else {
+      const sem = resto.replace(/^0+/, "").padStart(3, "0");
+      r = milhar(sem.slice(0, -2)) + "," + sem.slice(-2);
+    }
+  } else if (d.length === 1) r = d;
+  else if (d.length === 2) r = d[0] + "," + d[1];
+  else r = milhar(d.slice(0, -2)) + "," + d.slice(-2);
+  return prefixo + r + sufixo;
+}
+function _textoParaNumero(texto) {
+  const t = String(texto == null ? "" : texto).replace(/[^\d,]/g, "").replace(",", ".");
+  return t === "" || t === "." ? null : Number(t);
+}
+function _numeroParaTexto(n) {
+  const cent = Math.round(Math.abs(Number(n)) * 100);
+  const sem = String(cent).padStart(3, "0");
+  return sem.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + sem.slice(-2);
 }
 
 const mascaras = {
-  tipos: ["cpfcnpj", "cpf", "cnpj", "cep", "telefone", "moeda", "percentual", "data", "hora", "placa", "ip", "mac", "numero"],
+  tipos: ["cpfcnpj", "cpf", "cnpj", "cep", "telefone", "moeda", "percentual", "data", "hora", "placa", "ip", "mac", "numero", "ie", "rg", "uf"],
 
   cpf(v) {
     const d = _soDigitos(v).slice(0, 11);
@@ -2055,15 +2089,29 @@ const mascaras = {
   },
   numero(v) { return _soDigitos(v); },
 
-  moedaParaNumero(texto) {
-    const d = _soDigitos(texto);
-    return d ? parseInt(d, 10) / 100 : null;
-  },
+  moedaParaNumero(texto) { return _textoParaNumero(texto); },
   numeroParaMoeda(n) {
     if (n == null || n === "" || isNaN(Number(n))) return "";
-    const cent = Math.round(Math.abs(Number(n)) * 100);
-    return cent === 0 ? "R$ 0,00" : mascaras.moeda(String(cent));
+    return "R$ " + _numeroParaTexto(n);
   },
+  // Inscrição estadual. SE (00000000-0), BA (000000-00 ou 0000000-00) e SP
+  // (000.000.000.000) têm formato próprio; as demais UFs ficam só com os
+  // dígitos. "ISENTO" é aceito. Informe a UF (SE, BA, SP...) para o formato.
+  ie(v, uf) {
+    const txt = String(v == null ? "" : v).toUpperCase();
+    if (/^[A-Z]/.test(txt)) return "ISENTO".startsWith(txt.replace(/[^A-Z]/g, "")) ? txt.replace(/[^A-Z]/g, "").slice(0, 6) : "";
+    const d = _soDigitos(txt);
+    switch (String(uf || "").toUpperCase()) {
+      case "SE": { const x = d.slice(0, 9); return x.length > 8 ? x.slice(0, 8) + "-" + x.slice(8) : x; }
+      case "BA": { const x = d.slice(0, 9); const k = x.length > 8 ? 7 : 6; return x.length > k ? x.slice(0, k) + "-" + x.slice(k) : x; }
+      case "SP": { const x = d.slice(0, 12); return x.replace(/^(\d{3})(\d{1,3})?(\d{1,3})?(\d{1,3})?$/, (m, a, b, c, e) => [a, b, c, e].filter(Boolean).join(".")); }
+      default: return d.slice(0, 14);
+    }
+  },
+  // RG: números e a letra X no final, sem pontuação (cada estado usa um
+  // formato diferente). Maiúsculo.
+  rg(v) { return String(v == null ? "" : v).toUpperCase().replace(/[^0-9X]/g, "").slice(0, 12); },
+  uf(v) { return String(v == null ? "" : v).toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2); },
   dataParaISO(texto) {
     const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(texto || ""));
     if (!m) return null;
@@ -2086,13 +2134,14 @@ const mascaras = {
 
   aplicar(input, tipo, opcoes) {
     const t = _normalizarTipoMascara(tipo);
-    const fn = t === "cpfcnpj" ? mascaras.cpfCnpj : mascaras[t];
+    const base = t === "cpfcnpj" ? mascaras.cpfCnpj : mascaras[t];
+    const fn = t === "ie" ? (x => mascaras.ie(x, input.getAttribute("data-mask-uf"))) : base;
     if (!input || !fn || !mascaras.tipos.includes(t)) return null;
     if (input._fenixMascara === t) return input;
     input._fenixMascara = t;
     const numerico = ["cpfcnpj", "cpf", "cnpj", "cep", "telefone", "moeda", "percentual", "data", "hora", "numero"].includes(t);
     input.setAttribute("inputmode", t === "ip" ? "decimal" : numerico ? "numeric" : "text");
-    input.setAttribute("maxlength", String({ cpfcnpj: 18, cpf: 14, cnpj: 18, cep: 9, telefone: 16, moeda: 24, percentual: 11, data: 10, hora: 5, placa: 8, ip: 15, mac: 17, numero: 20 }[t]));
+    input.setAttribute("maxlength", String({ cpfcnpj: 18, cpf: 14, cnpj: 18, cep: 9, telefone: 16, moeda: 24, percentual: 11, data: 10, hora: 5, placa: 8, ip: 15, mac: 17, numero: 20, ie: 18, rg: 13, uf: 2 }[t]));
     if (t === "ip") input.setAttribute("autocomplete", "off");
     const fimDoTexto = t === "moeda" || t === "percentual";
     input.addEventListener("input", () => {
@@ -2119,7 +2168,8 @@ const mascaras = {
     const t = input && input._fenixMascara;
     if (!t) { if (input) input.value = valor == null ? "" : valor; return input; }
     if (t === "moeda") input.value = typeof valor === "number" ? mascaras.numeroParaMoeda(valor) : mascaras.moeda(valor);
-    else if (t === "percentual") input.value = typeof valor === "number" ? mascaras.percentual(String(Math.round(valor * 100))) : mascaras.percentual(valor);
+    else if (t === "percentual") input.value = typeof valor === "number" ? _numeroParaTexto(valor) + "%" : mascaras.percentual(valor);
+    else if (t === "ie") input.value = mascaras.ie(valor, input.getAttribute("data-mask-uf"));
     else input.value = (t === "cpfcnpj" ? mascaras.cpfCnpj : mascaras[t])(valor);
     return input;
   },
