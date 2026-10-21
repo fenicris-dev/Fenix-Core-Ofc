@@ -1,4 +1,4 @@
-# GUIA DA BIBLIOTECA FÊNIX (v3.9)
+# GUIA DA BIBLIOTECA FÊNIX (v4.0)
 
 Este guia explica, em português claro, tudo o que existe na biblioteca Fênix: o que cada função do Fênix Core faz e para que serve cada regra do Livro das Regras. Ele também funciona como o **Changelog da biblioteca** (Parte 4). Acompanha todo pacote novo e é atualizado a cada versão, junto com o livro, o core, os templates e os documentos legais, que andam sempre com o mesmo número (regra 7).
 
@@ -10,17 +10,17 @@ Endereço base de tudo: https://fenicris-dev.github.io/Fenix-Core/
 |----------------------------------------|------------------|------------------------------------------|
 | `fenix-core.js` | raiz | Biblioteca de funções que todo app carrega (módulo ES, exporta `FenixCore`). |
 | `index.html` | raiz | Painel da biblioteca: testa cada endereço oficial, confere se tudo está na mesma versão e roda testes ao vivo de CNPJ e CEP. |
-| `firestore.rules` | raiz | Proposta de regras de segurança do Firestore para as coleções do core (regra 46). Só vale depois que você comparar com o console e publicar. |
+| `firestore.rules` | raiz | Regras de segurança do Firestore: parte das publicadas no console e traz os reforços v4.0 (regra 46). Publique primeiro o core, depois as regras no console. |
 | `fenix-template-login.html` | raiz | Layout oficial de login de todo app com senha. |
 | `fenix-template-onboarding.html` | raiz | Layout oficial da tela de primeiro acesso. |
 | `Icon/Fenix_Icone_64, 128, 192, 512.png` | pasta `Icon/` | Ícone da águia (branca sobre o degradê): favicon, cabeçalho, PWA, splash e ícone provisório. |
 | `Logo/Fenix_Logo_Azul*.png`, `Fenix_Logo_Branca*.png` | pasta `Logo/` | Logo oficial (Azul) e segunda opção (Branca), também em 320 e 640 px. |
-| `Logo/Fenix_Logo_Black.png`, `Fênix-Logo-Silver.png`, `Fênix-Logo-Gray.png` | pasta `Logo/` | Logos auxiliares, para escolher o melhor contraste. |
+| `Logo/Fenix_Logo_Black.png`, `Fenix_Logo_Silver.png`, `Fenix_Logo_Gray.png` | pasta `Logo/` | Logos auxiliares, para escolher o melhor contraste. |
 | `Termos/fenix-termos-de-uso.html`, `Termos/fenix-politica-de-privacidade.html` | pasta `Termos/` | Textos legais oficiais, linkados no login e no onboarding. |
 | `MD/fenix-livro-das-regras.md`, `DOC/fenix-livro-das-regras.docx` | pastas `MD/` e `DOC/` | O Livro das Regras. |
 | `MD/fenix-guia-da-biblioteca.md`, `DOC/fenix-guia-da-biblioteca.docx` | pastas `MD/` e `DOC/` | Este guia. |
 
-Todo material com versão tem duas cópias (regra 11): a **neutra**, sem versão no nome (é a que os apps usam), e a **com versão no nome** (`-v3.9`), só para controle interno.
+Todo material com versão tem duas cópias (regra 11): a **neutra**, sem versão no nome (é a que os apps usam), e a **com versão no nome** (`-v4.0`), só para controle interno.
 
 ## PARTE 2. O FÊNIX CORE, FUNÇÃO POR FUNÇÃO
 
@@ -142,7 +142,7 @@ O campo se formata sozinho enquanto o usuário digita. Ninguém precisa pedir: v
 |--------------------------------|-----------------------------------------------|-----------------------------------|
 | `cpfcnpj` | Até 11 dígitos é CPF; passou de 11 vira CNPJ. Apagando de volta, volta a CPF. | `11111111111` vira `111.111.111-11`; mais três dígitos: `11.111.111/1111-11` |
 | `cpf`, `cnpj` | Só um dos dois. | |
-| `moeda` | Os dígitos entram pelos centavos; o ponto dos milhares aparece sozinho. | 1 vira `R$ 0,01`; 100 vira `R$ 1,00`; 1000 vira `R$ 10,00`; 123456 vira `R$ 1.234,56` |
+| `moeda` | Sem zero na frente: 1 dígito fica `R$ 1`; 2 viram `R$ 1,0`; 3 viram `R$ 1,00`; 4 viram `R$ 10,00`; 6 viram `R$ 1.000,00`. Começando com zero vêm os decimais. | `100000` vira `R$ 1.000,00`; `01` vira `R$ 0,1`; `010` vira `R$ 0,10` |
 | `percentual` | Igual à moeda, com `%`. | `1250` vira `12,50%` |
 | `telefone` | Escolhe fixo ou celular pelo primeiro dígito depois do DDD (9 é celular). | `79999680880` vira `(79) 9 9968-0880`; `7932221234` vira `(79) 3222-1234` |
 | `cep` | Traço depois do quinto dígito. | `49000000` vira `49000-000` |
@@ -150,15 +150,18 @@ O campo se formata sozinho enquanto o usuário digita. Ninguém precisa pedir: v
 | `placa` | Maiúsculas; formato antigo (`ABC-1234`) ou Mercosul (`ABC1D23`). | |
 | `ip`, `mac` | IP com pontos (cada parte até 255) e MAC com dois pontos, maiúsculo. Úteis em CFTV. | `192168001010` vira `192.168.001.010` |
 | `numero` | Só dígitos. | |
+| `ie` | Inscrição estadual. Informe a UF em `data-mask-uf`: SE, BA e SP têm formato próprio; as outras UFs ficam só com dígitos. Aceita `ISENTO`. | UF `SE`: `123456789` vira `12345678-9` |
+| `rg` | Números e a letra X, sem pontuação (cada estado usa um formato). | `12.345.678-x` vira `12345678X` |
+| `uf` | Duas letras, maiúsculas. | `se1` vira `SE` |
 
 **Funções de apoio** (todas devolvem texto ou valor, sem mexer na tela):
-- **`mascaras.cpf`, `cnpj`, `cpfCnpj`, `cep`, `telefone`, `moeda`, `percentual`, `data`, `hora`, `placa`, `ip`, `mac`, `numero`:** formatam um texto, para exibir um valor guardado.
+- **`mascaras.cpf`, `cnpj`, `cpfCnpj`, `cep`, `telefone`, `moeda`, `percentual`, `data`, `hora`, `placa`, `ip`, `mac`, `numero`, `ie(valor, uf)`, `rg`, `uf`:** formatam um texto, para exibir um valor guardado.
 - **`mascaras.moedaParaNumero("R$ 1.234,56")`:** devolve `1234.56`, para guardar e calcular. **`numeroParaMoeda(1234.56)`** faz o caminho contrário.
 - **`mascaras.dataParaISO("25/12/2026")`:** devolve `2026-12-25`, ou `null` se a data não existe.
 - **`mascaras.valorLimpo(tipo, texto)`:** o valor para guardar (só dígitos, número, data ISO...).
 - **`mascaras.aplicar(campo, tipo)`:** liga a máscara a um campo sem usar `data-mask`. **`definirValor(campo, valor)`:** põe um valor no campo já mascarado (número, no caso da moeda).
 
-**Atenção:** na moeda, as máscaras não aceitam valor negativo, e o valor inicial de um campo deve ser posto com `definirValor`, não direto no `value`.
+**Atenção:** a moeda não aceita valor negativo, e o valor inicial de um campo deve ser posto com `definirValor`, não direto no `value`. `moedaParaNumero` lê o texto mostrado (com vírgula decimal): `"R$ 1.234,56"` vira `1234.56` e `"R$ 1,0"` vira `1`.
 
 ## PARTE 3. O LIVRO DAS REGRAS, REGRA POR REGRA
 
@@ -208,8 +211,8 @@ O campo se formata sozinho enquanto o usuário digita. Ninguém precisa pedir: v
 35. **Fluxo do CNPJ** em qualquer tela que capture CNPJ: use `consultarCNPJ` e liste Razão Social, Endereço, Número, Bairro, CEP, Cidade e UF; tudo continua editável.
 36. **Alternância PF/PJ** mantendo os campos comuns.
 37. **Aviso de uso do CPF/CNPJ** sempre abaixo dos campos.
-38. **Máscaras automáticas** enquanto digita (CPF e CNPJ no mesmo campo, CEP, telefone, moeda, percentual, data, hora, placa, IP, MAC, número), ligadas por `data-mask` e `FenixCore.mascaras.auto()`; validação dos dígitos de CPF e CNPJ à parte. Nunca máscara própria.
-39. **Moeda** no padrão `R$ 0.000,00`, na exibição e na digitação (`data-mask="moeda"`, dígitos pelos centavos).
+38. **Máscaras automáticas** enquanto digita (CPF e CNPJ no mesmo campo, CEP, telefone, moeda, percentual, data, hora, placa, IP, MAC, número, inscrição estadual, RG, UF), ligadas por `data-mask` e `FenixCore.mascaras.auto()`; validação dos dígitos de CPF e CNPJ à parte. Nunca máscara própria.
+39. **Moeda** no padrão `R$ 0.000,00`, na exibição e na digitação (`data-mask="moeda"`; o campo põe a vírgula e os pontos sozinho).
 40. **Datas** em dd/mm/aaaa e horas em 24 h; guardar em formato ISO (`data-mask="data"` e `"hora"`).
 41. **Pessoas só pelo core:** nenhum app cria coleção própria de clientes; guarda a referência e, no máximo, um cache leve.
 42. **Padronização de escrita** ao salvar: nomes em MAIÚSCULAS, demais textos com iniciais maiúsculas, e-mail em minúsculas, UF em maiúsculas.
@@ -236,16 +239,32 @@ O campo se formata sozinho enquanto o usuário digita. Ninguém precisa pedir: v
 55. **Roteiro do app antigo:** quando um app existente vem para alteração: (a) ler o selo (sem selo, aplicar tudo; selo antigo, só o que o Histórico indica); (b) preencher a Ficha; (c) fazer o inventário do que o app cumpre e do que falta, regra por regra, e mostrar antes de mexer; (d) proteger os dados: chaves e formatos do localStorage e das coleções não mudam sem migração e backup; (e) aplicar em cinco etapas, cada uma testada: 1) core, banco desligado e selo, 2) identidade, 3) acesso, 4) cadastros e máscaras, 5) qualidade (Changelog e Manual, Sobre, backup, PDF e dashboard); (f) não mexer em telas que não foram pedidas e avisar quando uma regra conflitar com algo do app; (g) entregar pelo Como entregar, com a sequência de versões do próprio app e a Ficha no Changelog; (h) anotar o app em Apps já no padrão.
 
 ### firestore.rules, bloco por bloco
-O arquivo está na raiz da biblioteca. É uma **proposta**: compare com o que está publicado no console do Firebase (projeto fenix-core) antes de publicar e teste no "Playground de regras". Tudo que não está liberado é negado.
-- **Funções de apoio:** `logado`, `ehMembro` (membro aprovado da empresa), `ehDono` (membro aprovado com papel dono) e `vinculoCombinaComMembro`.
-- **`empresas/{id}`:** qualquer usuário logado cria a própria empresa (o `donoUid` tem de ser ele); só membros leem; só o dono altera ou apaga.
-- **`membros`:** o dono cria o próprio registro ao criar a empresa e quem aceita convite cria o seu como técnico; só o dono altera; o dono ou o próprio usuário apaga.
-- **Resto da empresa** (pessoas, `appData`, materiais, famílias, produtos e serviços, coleções de cada app): só membros aprovados leem e gravam.
-- **`usuarios_empresa/{uid}`:** o usuário lê e grava só o próprio vínculo, e só se bater com o registro de membro dele; o dono pode apagar o vínculo de quem remover.
-- **`convites/{token}`:** só o dono cria e cancela; o convidado só marca como usado, uma vez; ler um convite exige estar logado (se um app lê antes do login, a linha tem um aviso de como liberar); ninguém apaga.
-- **Base compartilhada** (`pessoas_fisicas`, `pessoas_juridicas`, `produtos_servicos`, `cidades` e `bairros`): usuário logado lê e grava, porque o core a desenhou comum a todos os apps. Só importa com o banco ativo.
-- **Limitação conhecida:** a regra não confere o token do convite ao criar o registro de técnico, porque o core não o grava no registro. Quem soubesse o código aleatório da empresa poderia entrar como técnico. Para fechar, o core precisaria gravar o token (mudança só de acréscimo, a combinar).
-- **Coleção própria de um app:** há um modelo comentado no fim do arquivo (dados só do dono).
+O arquivo está na raiz da biblioteca e **parte das regras publicadas no seu console** (as versões registradas no cabeçalho). O que já funcionava foi mantido; o que mudou na v4.0 está marcado com `[v4.0]`. Tudo que não está liberado é negado.
+
+**Ordem para publicar:** 1) o `fenix-core.js` v4.0 no GitHub (ele passa a gravar o `conviteToken` no registro do técnico); 2) só depois estas regras no console. Teste antes no "Playground de regras" (roteiro abaixo).
+
+- **Funções de apoio:** `autenticado`, `pertenceAEmpresa` (vínculo aprovado em `usuarios_empresa`), `souDonoDaEmpresa`, e, novas, `temVinculoAprovado`, `membroComPapel` e `conviteValido` (convite da empresa, não usado e não cancelado).
+- **Base compartilhada:** `produtos_servicos` e `cidades` como antes. **[v4.0]** `pessoas_fisicas` e `pessoas_juridicas` (CPF e CNPJ, dados pessoais) só para quem tem vínculo aprovado com uma empresa; antes, qualquer conta Google logada em qualquer app lia a base inteira.
+- **`empresas/{id}`:** como estava (qualquer logado lê e cria; ninguém altera nem apaga).
+- **`usuarios_empresa/{uid}`:** leitura e remoção como antes. **[v4.0]** criar o vínculo exige já ter o registro de membro da empresa com o mesmo papel; antes, qualquer logado criava o próprio vínculo como dono de qualquer empresa e passava a ver os dados dela. Atualizar sem trocar empresa nem papel continua livre.
+- **`convites/{token}`:** ler um convite pelo token, listar e criar como antes. **[v4.0]** a alteração fica restrita: o titular só cancela; o convidado só marca como usado, uma vez, com o próprio uid. Antes, qualquer logado alterava qualquer campo de um convite não usado.
+- **[v4.0] `empresas/{id}/membros/{uid}`:** o dono cria o próprio registro (a empresa tem de ter `donoUid` igual ao uid); o técnico cria o seu com o `conviteToken` de um convite válido da empresa. Só o titular altera; o titular ou o próprio apaga.
+- **Dados da empresa** (pessoas, `appData`, materiais, famílias, produtos e serviços e as coleções de cada app): só membros aprovados leem e gravam. **[v4.0]** a gravação não vale para a coleção `membros`.
+- **`dados_pessoais/{uid}`:** como estava (Gestor de Tempo e apps pessoais: cada um só vê o que está sob o próprio uid).
+
+**Roteiro de teste no Playground de regras** (todos com usuário logado de teste):
+1. Dono cria empresa (grava a empresa, o registro de membro dono e o vínculo): permitido.
+2. Usuário comum cria vínculo como dono de uma empresa que não é dele: negado.
+3. Técnico aceita convite válido (grava membro com `conviteToken`, depois o vínculo, depois marca o convite como usado): permitido.
+4. Técnico grava o registro de membro sem `conviteToken`, ou com convite cancelado ou já usado: negado.
+5. Técnico lê os dados da empresa: permitido; grava na coleção `membros`: negado.
+6. Usuário sem vínculo lê `pessoas_fisicas`: negado; com vínculo aprovado: permitido.
+7. Gestor de Tempo grava em `dados_pessoais/{o próprio uid}`: permitido; no de outro usuário: negado.
+
+**Pontos de atenção**
+- Um app com o core antigo guardado no cache do aparelho não grava o `conviteToken`, então não consegue aceitar convite até abrir com internet e baixar o core novo.
+- Pelas regras que estavam publicadas, o `criarEmpresa` do core gravava o registro de membro antes de existir o vínculo e era negado; agora passa. Se o Fênix Ativos tem fluxo próprio para criar empresa, ele segue funcionando.
+- Mantidos como estavam no console: a regra `empresas/{id}/cidades` com `write: false` (o curinga da empresa já libera a gravação, então ela não bloqueia nada) e a leitura de `empresas/{id}` por qualquer logado, que expõe o nome da empresa e o e-mail do dono. Dá para fechar depois, se você quiser.
 
 ### Seções finais do livro
 - **Ficha de aplicação:** sempre valem as regras 1 a 3, 5 a 22, 39, 40, 47 a 53 e 55. Grupos marcáveis: A banco ativo (4, 46), B login (23 a 32), C PF/PJ (33 a 38, 41, 42), D produto (43), E backup (44), F PDF (45), G dashboard (54).
@@ -259,6 +278,7 @@ O arquivo está na raiz da biblioteca. É uma **proposta**: compare com o que es
 Cada linha diz o que mudou e o que isso exige dos apps. As versões v1.x e v2.x do core vieram antes do livro atual; as versões v3.x são niveladas entre livro, core, templates e documentos legais.
 
 ### Versões v3.x (niveladas)
+- **v4.0**: moeda no padrão definido (1 dígito `R$ 1`, 2 `R$ 1,0`, 3 `R$ 1,00`, 4 `R$ 10,00`; com zero na frente vêm os decimais); máscaras novas `ie`, `rg` e `uf`; logos com nome com sublinhado (`Fenix_Logo_Silver.png`, `Fenix_Logo_Gray.png`); `firestore.rules` parte das regras publicadas e fecha três brechas (vínculo com qualquer empresa, alteração livre de convites e base de CPF/CNPJ aberta a qualquer logado); core grava `conviteToken` e recusa convite cancelado. Apps: SIM, na próxima alteração.
 - **v3.9**: máscaras automáticas em todo campo com formato fixo (regras 38 a 40): novo `FenixCore.mascaras`, ligado por `data-mask` e `mascaras.auto()`; CPF e CNPJ no mesmo campo, moeda pelos centavos, telefone, CEP, data, hora, placa, IP, MAC, percentual e número. O Painel testa as máscaras e tem um grupo para digitar. Apps: SIM, na próxima alteração cada app troca as máscaras próprias pelas do core.
 - **v3.8**: nova regra 55 (roteiro para trazer um app antigo ao padrão, seção 9). Novo arquivo-base `firestore.rules` (proposta de regras do Firestore para as coleções do core), com duas cópias, nos Endereços oficiais e no Painel; a regra 46 aponta para ele. Apps: nada.
 - **v3.7**: o Guia da biblioteca entra no conjunto (mesma versão, duas cópias, endereços oficiais, Como entregar e Painel). O Painel ganha testes ao vivo de CNPJ e CEP, que rodam `consultarCNPJ`, `buscarPorCEPSemBanco` e `buscarPorCEPBrasilAPI` com a internet real, sem gravar no banco. Apps: nada.
@@ -282,6 +302,7 @@ Cada linha diz o que mudou e o que isso exige dos apps. As versões v1.x e v2.x 
 - **v2.1**: anotação dos apps já no padrão. Apps: não.
 
 ### Fênix Core, funções acrescentadas (nada foi removido)
+- **v4.0**: `mascaras.ie`, `rg`, `uf`; regra nova da moeda; `moedaParaNumero` lê a vírgula decimal; `aceitarConvite` grava `conviteToken` e recusa convite cancelado.
 - **v3.9**: `FenixCore.mascaras` (máscaras automáticas e funções de apoio, seção 2.13).
 - **v3.5**: `localidades.buscarPorCEPSemBanco`.
 - **v2.5**: `pessoas.consultarCNPJ` e `localidades.buscarPorCEPBrasilAPI`.
