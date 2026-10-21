@@ -1,13 +1,13 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.3
+ * FÊNIX CORE v4.0
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
  * na URL): é a cópia publicada e referenciada por todos os apps. A cada nova
  * versão é entregue também uma cópia idêntica com a versão no nome (ex:
  * fenix-core-v2.1.js), usada só para controle temporal/histórico — nenhum app
- * deve apontar para ela. O mesmo vale para o index de qualquer app:
+ * deve apontar para ela. O mesmo vale para o index.html (Painel da biblioteca):
  * index.html (publicado) + cópia com a versão no nome (histórico). A versão
  * também é registrada aqui, no comentário de topo (ver Histórico de Versões
  * abaixo). Assim, cada app aponta para o endereço UMA vez, pra sempre, e
@@ -210,6 +210,31 @@
  * v3.2 — (cancelada: endereço com sublinhado, Fenix_Core, que não existe.)
  * v3.3 — Endereço oficial confirmado: https://fenicris-dev.github.io/Fenix-Core/
         fenix-core.js (hífen). Nenhuma função foi alterada.
+ * v3.4 — Nivelamento com o Livro das Regras v3.4 (index.html vira o Painel da
+        biblioteca). Nenhuma função foi alterada.
+ * v3.5 — Puramente aditivo (Livro das Regras v3.5): novo
+        FenixCore.localidades.buscarPorCEPSemBanco(cep), que consulta o ViaCEP
+        e devolve o endereço SEM gravar nada no Firestore (para apps com o banco
+        ainda desligado). buscarPorCEP continua igual, para quem usa o banco.
+ * v3.6 — Nivelamento com o Livro das Regras v3.6 (entrega também em .zip).
+        Nenhuma função foi alterada.
+ * v3.7 — Nivelamento com o Livro das Regras v3.7 (Guia da biblioteca e testes ao
+        vivo no Painel). Nenhuma função foi alterada.
+ * v3.8 — Nivelamento com o Livro das Regras v3.8 (roteiro de app antigo, regra 55,
+        e firestore.rules na biblioteca). Nenhuma função foi alterada.
+ * v3.9 — NOVO FenixCore.mascaras: máscaras automáticas enquanto o usuário digita
+        (CPF/CNPJ no mesmo campo, CEP, telefone, moeda pelos centavos, percentual,
+        data, hora, placa, IP, MAC e número), ligadas por data-mask + mascaras.auto().
+        Nada foi removido nem alterado nas funções existentes.
+ * v4.0 — (1) Moeda e percentual passam a seguir a regra do Cristiano: 1 dígito
+        = "1"; 2 = "1,0"; 3 = "1,00"; 4 = "10,00"; 6 = "1.000,00"; começando
+        com zero: "01" = "0,1" e "010" = "0,10". moedaParaNumero agora lê o
+        texto mostrado (vírgula decimal). (2) Novos tipos de máscara: ie
+        (inscrição estadual, com data-mask-uf; SE, BA e SP têm formato próprio),
+        rg (só dígitos e X) e uf (2 letras). (3) Convites: aceitarConvite grava
+        "conviteToken" no registro de membro (o firestore.rules v4.0 usa isso
+        para provar o convite) e recusa convite cancelado. Só acréscimos e
+        correções; nenhuma função foi removida.
  * ============================================================================
  */
 
@@ -827,7 +852,8 @@ function criarModuloConvites(db, baseUrl) {
         if (!snap.exists()) throw new Error("Convite não encontrado.");
         const convite = snap.data();
         if (convite.usado) throw new Error("Este convite já foi utilizado.");
-        return setDoc(doc(db, "empresas", convite.empresaId, "membros", uid), { email, papel: "tecnico", status: "aprovado", criadoEm: serverTimestamp() })
+        if (convite.cancelado) throw new Error("Este convite foi cancelado.");
+        return setDoc(doc(db, "empresas", convite.empresaId, "membros", uid), { email, papel: "tecnico", status: "aprovado", conviteToken: token, criadoEm: serverTimestamp() })
           .then(() => setDoc(doc(db, "usuarios_empresa", uid), { empresaId: convite.empresaId, papel: "tecnico", status: "aprovado" }))
           .then(() => updateDoc(refConvite, { usado: true, usadoPorUid: uid, usadoEm: serverTimestamp() }))
           .then(() => getDoc(doc(db, "empresas", convite.empresaId)))
@@ -1870,6 +1896,30 @@ Object.assign(localidades, {
       uf: (dados.state || "").toString().trim().toUpperCase(),
       origem: "brasilapi-cep"
     };
+  },
+
+  /**
+   * Igual ao buscarPorCEP (ViaCEP), mas NÃO usa o Firestore: não cria cidade nem
+   * registra bairro. Use enquanto o banco do app estiver desligado.
+   * Devolve { cep, logradouro, bairro, cidade, uf, codigoIBGE, origem:"cep-sem-banco" }
+   * ou null se o CEP não existir.
+   */
+  async buscarPorCEPSemBanco(cep) {
+    const cepLimpo = limparDocumento(cep);
+    if (cepLimpo.length !== 8) throw new Error("CEP inválido: " + cep);
+    const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+    if (!resp.ok) return null;
+    const dados = await resp.json();
+    if (!dados || dados.erro) return null;
+    return {
+      cep: cepLimpo,
+      logradouro: formatarTitulo(dados.logradouro),
+      bairro: formatarTitulo(dados.bairro),
+      cidade: formatarTitulo(dados.localidade),
+      uf: (dados.uf || "").toString().trim().toUpperCase(),
+      codigoIBGE: dados.ibge || null,
+      origem: "cep-sem-banco"
+    };
   }
 });
 
@@ -1903,6 +1953,249 @@ Object.assign(pessoas, {
 });
 
 // ============================================================================
+// MÁSCARAS AUTOMÁTICAS (v3.9) — formatam o campo enquanto o usuário digita
+// ============================================================================
+/**
+ * Uso mais simples: no HTML, marque o campo com data-mask e chame uma vez
+ * FenixCore.mascaras.auto() depois do carregamento do core:
+ *
+ *   <input data-mask="cpfcnpj">   <input data-mask="moeda">   <input data-mask="telefone">
+ *
+ * Tipos: cpfcnpj (até 11 dígitos é CPF; passou de 11 vira CNPJ), cpf, cnpj,
+ * cep, telefone (fixo ou celular), moeda, percentual, data, hora, placa,
+ * ip, mac, numero, ie (com data-mask-uf="SE"), rg, uf. Campos que aparecerem depois na tela também são cobertos.
+ *
+ * Moeda: 1 -> R$ 1 | 10 -> R$ 1,0 | 100 -> R$ 1,00 | 1000 -> R$ 10,00 |
+ * 10000 -> R$ 100,00 | 100000 -> R$ 1.000,00. Começando com zero:
+ * 01 -> R$ 0,1 | 010 -> R$ 0,10.
+ *
+ * Funções (todas devolvem texto, sem tocar na tela):
+ *   mascaras.cpf / cnpj / cpfCnpj / cep / telefone / moeda / percentual /
+ *   data / hora / placa / ip / mac / numero (valor)
+ *   mascaras.moedaParaNumero("R$ 1.234,56") -> 1234.56
+ *   mascaras.numeroParaMoeda(1234.56)       -> "R$ 1.234,56"
+ *   mascaras.dataParaISO("25/12/2026")      -> "2026-12-25" (ou null se inválida)
+ *   mascaras.valorLimpo(tipo, texto)        -> o valor para guardar (só dígitos,
+ *                                              número, data ISO...)
+ *   mascaras.aplicar(input, tipo)           -> liga a máscara a um campo
+ *   mascaras.definirValor(input, valor)     -> põe um valor já mascarado no campo
+ *   mascaras.auto(raiz)                     -> liga todos os [data-mask]
+ */
+const _soDigitos = v => String(v == null ? "" : v).replace(/\D/g, "");
+
+function _moedaBase(v, prefixo, sufixo, maxDigitos) {
+  // Regra: sem zero na frente, 1 dígito = "1"; 2 = "1,0"; 3 em diante, os dois
+  // últimos são decimais ("1,00", "10,00", "1.000,00"). Com zero na frente,
+  // os dígitos seguintes são os decimais ("0,1", "0,10").
+  const d = _soDigitos(v).slice(0, maxDigitos);
+  if (!d) return "";
+  const milhar = x => x.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  let r;
+  if (d[0] === "0") {
+    const resto = d.slice(1);
+    if (resto.length <= 2) r = resto ? "0," + resto : "0";
+    else {
+      const sem = resto.replace(/^0+/, "").padStart(3, "0");
+      r = milhar(sem.slice(0, -2)) + "," + sem.slice(-2);
+    }
+  } else if (d.length === 1) r = d;
+  else if (d.length === 2) r = d[0] + "," + d[1];
+  else r = milhar(d.slice(0, -2)) + "," + d.slice(-2);
+  return prefixo + r + sufixo;
+}
+function _textoParaNumero(texto) {
+  const t = String(texto == null ? "" : texto).replace(/[^\d,]/g, "").replace(",", ".");
+  return t === "" || t === "." ? null : Number(t);
+}
+function _numeroParaTexto(n) {
+  const cent = Math.round(Math.abs(Number(n)) * 100);
+  const sem = String(cent).padStart(3, "0");
+  return sem.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + sem.slice(-2);
+}
+
+const mascaras = {
+  tipos: ["cpfcnpj", "cpf", "cnpj", "cep", "telefone", "moeda", "percentual", "data", "hora", "placa", "ip", "mac", "numero", "ie", "rg", "uf"],
+
+  cpf(v) {
+    const d = _soDigitos(v).slice(0, 11);
+    let r = d.slice(0, 3);
+    if (d.length > 3) r += "." + d.slice(3, 6);
+    if (d.length > 6) r += "." + d.slice(6, 9);
+    if (d.length > 9) r += "-" + d.slice(9, 11);
+    return r;
+  },
+  cnpj(v) {
+    const d = _soDigitos(v).slice(0, 14);
+    let r = d.slice(0, 2);
+    if (d.length > 2) r += "." + d.slice(2, 5);
+    if (d.length > 5) r += "." + d.slice(5, 8);
+    if (d.length > 8) r += "/" + d.slice(8, 12);
+    if (d.length > 12) r += "-" + d.slice(12, 14);
+    return r;
+  },
+  cpfCnpj(v) {
+    const d = _soDigitos(v);
+    return d.length > 11 ? mascaras.cnpj(d) : mascaras.cpf(d);
+  },
+  cep(v) {
+    const d = _soDigitos(v).slice(0, 8);
+    return d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
+  },
+  telefone(v) {
+    const d = _soDigitos(v).slice(0, 11);
+    if (!d) return "";
+    let r = "(" + d.slice(0, 2);
+    if (d.length <= 2) return r;
+    r += ") ";
+    const resto = d.slice(2);
+    if (resto[0] === "9") { // celular: (79) 9 9968-0880
+      r += resto[0];
+      if (resto.length > 1) r += " " + resto.slice(1, 5);
+      if (resto.length > 5) r += "-" + resto.slice(5, 9);
+    } else {               // fixo: (79) 3222-1234
+      r += resto.slice(0, 4);
+      if (resto.length > 4) r += "-" + resto.slice(4, 8);
+    }
+    return r;
+  },
+  moeda(v) { return _moedaBase(v, "R$ ", "", 15); },
+  percentual(v) { return _moedaBase(v, "", "%", 7); },
+  data(v) {
+    const d = _soDigitos(v).slice(0, 8);
+    let r = d.slice(0, 2);
+    if (d.length > 2) r += "/" + d.slice(2, 4);
+    if (d.length > 4) r += "/" + d.slice(4, 8);
+    return r;
+  },
+  hora(v) {
+    const d = _soDigitos(v).slice(0, 4);
+    return d.length > 2 ? d.slice(0, 2) + ":" + d.slice(2) : d;
+  },
+  placa(v) {
+    const c = String(v == null ? "" : v).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+    return c.length >= 5 && /\d/.test(c[4]) ? c.slice(0, 3) + "-" + c.slice(3) : c;
+  },
+  ip(v) {
+    const partes = [];
+    String(v == null ? "" : v).replace(/[^\d.]/g, "").split(".").forEach(p => {
+      while (p.length > 3) { partes.push(p.slice(0, 3)); p = p.slice(3); }
+      partes.push(p);
+    });
+    return partes.slice(0, 4).map(p => (p !== "" && Number(p) > 255 ? "255" : p)).join(".");
+  },
+  mac(v) {
+    const h = String(v == null ? "" : v).toUpperCase().replace(/[^0-9A-F]/g, "").slice(0, 12);
+    return h.replace(/(.{2})(?=.)/g, "$1:");
+  },
+  numero(v) { return _soDigitos(v); },
+
+  moedaParaNumero(texto) { return _textoParaNumero(texto); },
+  numeroParaMoeda(n) {
+    if (n == null || n === "" || isNaN(Number(n))) return "";
+    return "R$ " + _numeroParaTexto(n);
+  },
+  // Inscrição estadual. SE (00000000-0), BA (000000-00 ou 0000000-00) e SP
+  // (000.000.000.000) têm formato próprio; as demais UFs ficam só com os
+  // dígitos. "ISENTO" é aceito. Informe a UF (SE, BA, SP...) para o formato.
+  ie(v, uf) {
+    const txt = String(v == null ? "" : v).toUpperCase();
+    if (/^[A-Z]/.test(txt)) return "ISENTO".startsWith(txt.replace(/[^A-Z]/g, "")) ? txt.replace(/[^A-Z]/g, "").slice(0, 6) : "";
+    const d = _soDigitos(txt);
+    switch (String(uf || "").toUpperCase()) {
+      case "SE": { const x = d.slice(0, 9); return x.length > 8 ? x.slice(0, 8) + "-" + x.slice(8) : x; }
+      case "BA": { const x = d.slice(0, 9); const k = x.length > 8 ? 7 : 6; return x.length > k ? x.slice(0, k) + "-" + x.slice(k) : x; }
+      case "SP": { const x = d.slice(0, 12); return x.replace(/^(\d{3})(\d{1,3})?(\d{1,3})?(\d{1,3})?$/, (m, a, b, c, e) => [a, b, c, e].filter(Boolean).join(".")); }
+      default: return d.slice(0, 14);
+    }
+  },
+  // RG: números e a letra X no final, sem pontuação (cada estado usa um
+  // formato diferente). Maiúsculo.
+  rg(v) { return String(v == null ? "" : v).toUpperCase().replace(/[^0-9X]/g, "").slice(0, 12); },
+  uf(v) { return String(v == null ? "" : v).toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2); },
+  dataParaISO(texto) {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(texto || ""));
+    if (!m) return null;
+    const dia = +m[1], mes = +m[2], ano = +m[3];
+    const dt = new Date(ano, mes - 1, dia);
+    if (dt.getFullYear() !== ano || dt.getMonth() !== mes - 1 || dt.getDate() !== dia) return null;
+    return m[3] + "-" + m[2] + "-" + m[1];
+  },
+  valorLimpo(tipo, texto) {
+    switch (_normalizarTipoMascara(tipo)) {
+      case "moeda": return mascaras.moedaParaNumero(texto);
+      case "percentual": return mascaras.moedaParaNumero(texto);
+      case "data": return mascaras.dataParaISO(texto);
+      case "hora": { const m = /^(\d{2}):(\d{2})$/.exec(String(texto || "")); return m && +m[1] < 24 && +m[2] < 60 ? texto : null; }
+      case "placa": return String(texto || "").replace(/-/g, "");
+      case "ip": case "mac": return String(texto || "");
+      default: return _soDigitos(texto);
+    }
+  },
+
+  aplicar(input, tipo, opcoes) {
+    const t = _normalizarTipoMascara(tipo);
+    const base = t === "cpfcnpj" ? mascaras.cpfCnpj : mascaras[t];
+    const fn = t === "ie" ? (x => mascaras.ie(x, input.getAttribute("data-mask-uf"))) : base;
+    if (!input || !fn || !mascaras.tipos.includes(t)) return null;
+    if (input._fenixMascara === t) return input;
+    input._fenixMascara = t;
+    const numerico = ["cpfcnpj", "cpf", "cnpj", "cep", "telefone", "moeda", "percentual", "data", "hora", "numero"].includes(t);
+    input.setAttribute("inputmode", t === "ip" ? "decimal" : numerico ? "numeric" : "text");
+    input.setAttribute("maxlength", String({ cpfcnpj: 18, cpf: 14, cnpj: 18, cep: 9, telefone: 16, moeda: 24, percentual: 11, data: 10, hora: 5, placa: 8, ip: 15, mac: 17, numero: 20, ie: 18, rg: 13, uf: 2 }[t]));
+    if (t === "ip") input.setAttribute("autocomplete", "off");
+    const fimDoTexto = t === "moeda" || t === "percentual";
+    input.addEventListener("input", () => {
+      const antes = input.value;
+      const pos = input.selectionStart == null ? antes.length : input.selectionStart;
+      const sig = (antes.slice(0, pos).match(/[0-9A-Za-z]/g) || []).length;
+      const novo = fn(antes);
+      if (novo === antes) return;
+      input.value = novo;
+      let p = novo.length;
+      if (!fimDoTexto && pos < antes.length) {
+        let cont = 0; p = 0;
+        while (p < novo.length && cont < sig) { if (/[0-9A-Za-z]/.test(novo[p])) cont++; p++; }
+      }
+      try { input.setSelectionRange(p, p); } catch (e) { /* tipos sem seleção */ }
+    });
+    if (input.value) {
+      const ini = input.value;
+      if (!(fimDoTexto && !ini.includes(","))) input.value = fn(ini);
+    }
+    return input;
+  },
+  definirValor(input, valor) {
+    const t = input && input._fenixMascara;
+    if (!t) { if (input) input.value = valor == null ? "" : valor; return input; }
+    if (t === "moeda") input.value = typeof valor === "number" ? mascaras.numeroParaMoeda(valor) : mascaras.moeda(valor);
+    else if (t === "percentual") input.value = typeof valor === "number" ? _numeroParaTexto(valor) + "%" : mascaras.percentual(valor);
+    else if (t === "ie") input.value = mascaras.ie(valor, input.getAttribute("data-mask-uf"));
+    else input.value = (t === "cpfcnpj" ? mascaras.cpfCnpj : mascaras[t])(valor);
+    return input;
+  },
+  auto(raiz) {
+    if (typeof document === "undefined") return 0;
+    const ligar = el => el.getAttribute && mascaras.aplicar(el, el.getAttribute("data-mask"));
+    const r = raiz || document;
+    let n = 0;
+    r.querySelectorAll("[data-mask]").forEach(el => { if (ligar(el)) n++; });
+    if (!mascaras._obs && typeof MutationObserver !== "undefined") {
+      mascaras._obs = new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(nd => {
+        if (nd.nodeType !== 1) return;
+        if (nd.matches && nd.matches("[data-mask]")) ligar(nd);
+        if (nd.querySelectorAll) nd.querySelectorAll("[data-mask]").forEach(ligar);
+      })));
+      mascaras._obs.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    return n;
+  }
+};
+function _normalizarTipoMascara(t) {
+  t = String(t || "").toLowerCase().replace(/[^a-z]/g, "");
+  return t === "documento" || t === "cpfoucnpj" ? "cpfcnpj" : t;
+}
+
+// ============================================================================
 // EXPORTAÇÃO
 // ============================================================================
 
@@ -1926,6 +2219,7 @@ export const FenixCore = {
   sobre,
   manual,
   dashboard,
+  mascaras,
   validarCPF,
   validarCNPJ,
   formatarCPF,

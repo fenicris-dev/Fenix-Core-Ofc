@@ -1,0 +1,183 @@
+// ============================================================================
+// FÊNIX | firestore.rules (Biblioteca Fênix v4.0)
+//
+// BASE: as regras publicadas no console do Firebase (projeto fenix-core), nas
+// versões registradas abaixo, enviadas pelo Cristiano em 21/10/2026. O que já
+// funciona em produção foi MANTIDO. Os reforços da v4.0 estão marcados com
+// [v4.0] e explicados no guia (firestore.rules, bloco por bloco).
+//
+// ---------- Versões ----------
+// Fenix_Ativos_v4.6
+// fenix-core-v1.7
+// firestore-rules-v4-catalogos-raiz
+// firestore-rules-v4-convites
+// firestore-rules-v5-dados-pessoais (Gestor de Tempo)
+// firestore-rules-v6-biblioteca-v4.0 (reforços [v4.0])
+//
+// ORDEM PARA PUBLICAR (importante):
+//   1) publique o fenix-core.js v4.0 no GitHub (ele passa a gravar o
+//      "conviteToken" no registro de técnico);
+//   2) só depois publique estas regras no console.
+//   Testar antes no "Playground de regras" (roteiro no guia).
+// ============================================================================
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- funções de apoio ----------
+    function autenticado() {
+      return request.auth != null;
+    }
+    function vinculoDoUsuario() {
+      return get(/databases/$(database)/documents/usuarios_empresa/$(request.auth.uid)).data;
+    }
+    function pertenceAEmpresa(empresaId) {
+      return autenticado()
+        && exists(/databases/$(database)/documents/usuarios_empresa/$(request.auth.uid))
+        && vinculoDoUsuario().empresaId == empresaId
+        && vinculoDoUsuario().status == 'aprovado';
+    }
+    function souDonoDaEmpresa(empresaId) {
+      return pertenceAEmpresa(empresaId) && vinculoDoUsuario().papel == 'dono';
+    }
+    // [v4.0] vínculo aprovado com qualquer empresa (usado na base de pessoas)
+    function temVinculoAprovado() {
+      return autenticado()
+        && exists(/databases/$(database)/documents/usuarios_empresa/$(request.auth.uid))
+        && vinculoDoUsuario().status == 'aprovado';
+    }
+    // [v4.0] provas para criar o vínculo: registro de membro da empresa
+    function caminhoMembro(empresaId, uid) {
+      return /databases/$(database)/documents/empresas/$(empresaId)/membros/$(uid);
+    }
+    function membroComPapel(empresaId, uid, papel) {
+      return exists(caminhoMembro(empresaId, uid))
+        && get(caminhoMembro(empresaId, uid)).data.papel == papel;
+    }
+    // [v4.0] convite existente, da empresa, não usado e não cancelado
+    function conviteValido(empresaId, token) {
+      return token is string && token.size() > 0
+        && exists(/databases/$(database)/documents/convites/$(token))
+        && get(/databases/$(database)/documents/convites/$(token)).data.empresaId == empresaId
+        && get(/databases/$(database)/documents/convites/$(token)).data.usado == false
+        && get(/databases/$(database)/documents/convites/$(token)).data.get('cancelado', false) == false;
+    }
+
+    // ---------- Compartilhado entre todos os apps Fênix (raiz) ----------
+    // Cadastro nacional de CPF/CNPJ e produtos genéricos.
+    // [v4.0] CPF e CNPJ (dados pessoais, LGPD): só quem tem vínculo aprovado com
+    // uma empresa lê e grava. Antes, qualquer usuário logado (basta uma conta
+    // Google) lia a base inteira. Se algum app sem empresa usar estas
+    // coleções, ele para de funcionar: nesse caso troque temVinculoAprovado()
+    // por autenticado() só nessa linha e me avise.
+    match /pessoas_fisicas/{cpf} {
+      allow read, write: if temVinculoAprovado();
+    }
+    match /pessoas_juridicas/{cnpj} {
+      allow read, write: if temVinculoAprovado();
+    }
+    match /produtos_servicos/{id} {
+      allow read, write: if autenticado();
+    }
+    match /cidades/{codigoIBGE} {
+      allow read: if true; // localização é público, sem dado sensível
+      allow write: if autenticado();
+      match /bairros/{bairroId} {
+        allow read: if true;
+        allow write: if autenticado();
+      }
+    }
+
+    // ---------- Empresas ----------
+    match /empresas/{empresaId} {
+      allow read: if autenticado();
+      allow create: if autenticado();
+      allow update, delete: if false;
+    }
+
+    // ---------- Vínculo usuário -> empresa ----------
+    // Cada um lê o próprio vínculo; o titular também pode listar/remover
+    // vínculos de quem já pertence à mesma empresa (gestão de equipe).
+    match /usuarios_empresa/{uid} {
+      allow get: if autenticado() && (request.auth.uid == uid || souDonoDaEmpresa(resource.data.empresaId));
+      allow list: if autenticado() && souDonoDaEmpresa(resource.data.empresaId);
+      // [v4.0] Antes, qualquer logado criava o próprio vínculo com QUALQUER
+      // empresa e papel "dono" (e passava a ver os dados dela). Agora só cria
+      // o vínculo quem já tem o registro de membro com o mesmo papel, e esse
+      // registro exige ser o dono da empresa ou ter um convite válido.
+      allow create: if autenticado() && request.auth.uid == uid
+        && membroComPapel(request.resource.data.empresaId, uid, request.resource.data.papel);
+      // [v4.0] Atualizar sem trocar empresa nem papel continua livre; trocar
+      // exige a mesma prova do create.
+      allow update: if autenticado() && request.auth.uid == uid
+        && (
+          (request.resource.data.empresaId == resource.data.empresaId
+            && request.resource.data.papel == resource.data.papel)
+          || membroComPapel(request.resource.data.empresaId, uid, request.resource.data.papel)
+        );
+      allow delete: if autenticado() && (request.auth.uid == uid || souDonoDaEmpresa(resource.data.empresaId));
+    }
+
+    // ---------- Convites ----------
+    // Ler UM convite específico (pelo token) é liberado pra qualquer
+    // autenticado: o próprio token é o segredo, e é assim que a pessoa
+    // convidada vê/aceita antes de pertencer à empresa. Listar é só do titular.
+    match /convites/{token} {
+      allow get: if autenticado();
+      allow list: if autenticado() && souDonoDaEmpresa(resource.data.empresaId);
+      allow create: if autenticado() && souDonoDaEmpresa(request.resource.data.empresaId);
+      // [v4.0] Antes, qualquer logado alterava qualquer campo de um convite não
+      // usado (até a empresa). Agora: o titular só cancela; o convidado só marca
+      // como usado, uma vez, com o próprio uid.
+      allow update: if autenticado() && (
+        (souDonoDaEmpresa(resource.data.empresaId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cancelado']))
+        || (resource.data.usado == false
+          && resource.data.get('cancelado', false) == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usado', 'usadoPorUid', 'usadoEm'])
+          && request.resource.data.usado == true
+          && request.resource.data.usadoPorUid == request.auth.uid)
+      );
+      allow delete: if autenticado() && souDonoDaEmpresa(resource.data.empresaId);
+    }
+
+    // ---------- [v4.0] Equipe: registros de membro ----------
+    // O dono cria o próprio registro ao criar a empresa (a empresa tem de ter
+    // donoUid igual ao uid); o técnico cria o seu com o "conviteToken" válido
+    // que o core v4.0 grava. Só o titular altera; o titular ou o próprio apaga.
+    match /empresas/{empresaId}/membros/{uid} {
+      allow create: if autenticado() && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/empresas/$(empresaId))
+        && (
+          (request.resource.data.papel == 'dono'
+            && get(/databases/$(database)/documents/empresas/$(empresaId)).data.donoUid == uid)
+          || (request.resource.data.papel == 'tecnico'
+            && conviteValido(empresaId, request.resource.data.get('conviteToken', '')))
+        );
+      allow update: if souDonoDaEmpresa(empresaId);
+      allow delete: if autenticado() && (request.auth.uid == uid || souDonoDaEmpresa(empresaId));
+    }
+
+    // ---------- Dados de cada empresa (isolados) ----------
+    // [v4.0] Membros leem tudo; a gravação fica de fora da coleção "membros",
+    // que tem a regra própria acima.
+    match /empresas/{empresaId}/{tipoColecao}/{docId} {
+      allow read: if pertenceAEmpresa(empresaId);
+      allow write: if tipoColecao != 'membros' && pertenceAEmpresa(empresaId);
+    }
+    match /empresas/{empresaId}/cidades/{codigoIBGE} {
+      allow read: if pertenceAEmpresa(empresaId);
+      allow write: if false;
+      match /bairros/{bairroId} {
+        allow read: if pertenceAEmpresa(empresaId);
+        allow write: if pertenceAEmpresa(empresaId);
+      }
+    }
+
+    // ---------- Dados pessoais por usuário (v5: Gestor de Tempo e outros apps pessoais) ----------
+    // Cada usuário lê e grava só o que está sob o próprio uid. Nada de empresa envolvido.
+    match /dados_pessoais/{uid}/{colecao}/{docId} {
+      allow read, write: if autenticado() && request.auth.uid == uid;
+    }
+  }
+}

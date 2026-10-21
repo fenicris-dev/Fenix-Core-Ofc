@@ -1,10 +1,15 @@
-Biblioteca Fênix v3.5
+Biblioteca Fênix v4.0
 
-Raiz do repositório: index.html, fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html
-Icon/   : Fenix_Icone_128.png (novo; os demais ícones já estão no repositório)
+Raiz do repositório: index.html (Painel), fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html, firestore.rules
+Icon/   : Fenix_Icone_128.png (os demais ícones já estão no repositório)
 Termos/ : fenix-termos-de-uso.html, fenix-politica-de-privacidade.html
-MD/     : fenix-livro-das-regras.md
-DOC/    : fenix-livro-das-regras.docx
+MD/     : fenix-livro-das-regras.md, fenix-guia-da-biblioteca.md (guia e changelog da biblioteca)
+DOC/    : fenix-livro-das-regras.docx, fenix-guia-da-biblioteca.docx
 versoes/: cópias com a versão no nome, só para controle interno (nenhum app aponta para elas)
 
-Depois de publicar, abra https://fenicris-dev.github.io/Fenix-Core/ e toque em "Testar tudo".
+ORDEM PARA PUBLICAR (importante):
+1) Suba todos os arquivos para o GitHub, principalmente o fenix-core.js v4.0 (ele passa a gravar o conviteToken no registro do técnico).
+2) Abra https://fenicris-dev.github.io/Fenix-Core/ e toque em "Testar tudo" e "Rodar testes ao vivo"; digite nos campos de "Testar máscaras".
+3) Só então copie o firestore.rules para o console do Firebase (Firestore > Regras), depois de testar no Playground de regras (roteiro na seção "firestore.rules, bloco por bloco" do guia). Subir o arquivo no GitHub NÃO altera o banco.
+
+O que muda na v4.0: moeda no seu padrão (1 -> R$ 1; 10 -> R$ 1,0; 100 -> R$ 1,00; 1000 -> R$ 10,00; 010 -> R$ 0,10); máscaras novas ie, rg e uf; logos com nome com sublinhado (Fenix_Logo_Silver.png, Fenix_Logo_Gray.png); firestore.rules parte das regras publicadas e fecha 3 brechas.
