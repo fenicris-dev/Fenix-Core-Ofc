@@ -1,139 +1,133 @@
+// ============================================================================
+// FÊNIX | firestore.rules (Biblioteca Fênix v3.9)
+// PROPOSTA de regras de segurança do Firestore para as coleções que o Fênix
+// Core usa. Antes de publicar, compare com o que está hoje no console do
+// Firebase (projeto fenix-core): o que existir lá e não estiver aqui precisa
+// ser conservado. Teste no "Playground de regras" do console antes de publicar.
+//
+// Princípios (regra 46 do Livro): nada fica aberto; só usuário logado; dados
+// de uma empresa só para os membros aprovados dela; ações de gestão só para o
+// dono. Tudo que não está liberado aqui é negado (último bloco).
+//
+// Coleções do core:
+//   empresas/{empresaId}                 dados da empresa (donoUid)
+//   empresas/{empresaId}/membros/{uid}   equipe (papel: dono | tecnico)
+//   empresas/{empresaId}/{qualquer}      pessoas, appData, materiais, famílias,
+//                                        produtos e serviços da empresa
+//   usuarios_empresa/{uid}               vínculo rápido usuário -> empresa
+//   convites/{token}                     convites por link
+//   pessoas_fisicas, pessoas_juridicas, produtos_servicos, cidades (+bairros)
+//                                        base compartilhada (só com o banco ativo)
+// ============================================================================
 rules_version = '2';
-
-// ════════════════════════════════════════════════════════════════
-// Fênix Recibo Pro — Regras de Segurança do Firestore
-// Projeto: fenix-recibos-profissionais
-//
-// IMPORTANTE — LEIA ANTES DE PUBLICAR:
-// Estas regras foram deduzidas lendo TODAS as chamadas ao Firestore
-// dentro do app (recibo.html). Cobrem os fluxos que encontrei, mas
-// recomendo fortemente testar no Simulador de Regras do console do
-// Firebase (ou com o emulador local) antes de publicar em produção,
-// repetindo as ações principais do app: login, registro, aprovação
-// de plano, emissão de recibo, configurar/remover PIN, exportar
-// relatório admin, comprar cupom etc.
-//
-// Como publicar:
-//   1. Console do Firebase → Firestore Database → Regras → colar este
-//      conteúdo → Publicar. (Confirme que está no projeto
-//      fenix-recibos-profissionais, não em fenix-core-19e82 nem em
-//      qualquer outro projeto Fênix seu.)
-//   OU
-//   2. Via Firebase CLI: salve este arquivo como firestore.rules na
-//      raiz do projeto e rode `firebase deploy --only firestore:rules`.
-// ════════════════════════════════════════════════════════════════
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers ──────────────────────────────────────────────────
+    // ---------- funções de apoio ----------
     function logado() {
       return request.auth != null;
     }
-    function ehDono(uid) {
-      return logado() && request.auth.uid == uid;
+    function caminhoMembro(empresaId, uid) {
+      return /databases/$(database)/documents/empresas/$(empresaId)/membros/$(uid);
     }
-    // Espelha o ADMIN_UID definido em recibo.html (const ADMIN_UID)
-    function ehAdmin() {
-      return logado() && request.auth.uid == "rT019CXnagdXuuBukKyk4hQwKSw1";
+    function ehMembro(empresaId) {
+      return logado()
+        && exists(caminhoMembro(empresaId, request.auth.uid))
+        && get(caminhoMembro(empresaId, request.auth.uid)).data.status == 'aprovado';
     }
-    function apenasCampos(campos) {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    function ehDono(empresaId) {
+      return ehMembro(empresaId)
+        && get(caminhoMembro(empresaId, request.auth.uid)).data.papel == 'dono';
     }
-
-    // ── users/{uid}/{colecao}/{docId} ──────────────────────────
-    // Dados operacionais do app (empresas, recibos, clientes, profissionais)
-    // namespaced por usuário. Cada usuário só acessa os próprios dados;
-    // o admin pode ler/escrever tudo (suporte, correções, exportação).
-    match /users/{uid}/{document=**} {
-      allow read, write: if ehDono(uid) || ehAdmin();
+    function vinculoCombinaComMembro(d, uid) {
+      return exists(caminhoMembro(d.empresaId, uid))
+        && get(caminhoMembro(d.empresaId, uid)).data.papel == d.papel;
     }
 
-    // ── usuarios/{uid} — perfil, status de conta e plano ───────
-    match /usuarios/{uid} {
-      allow read: if ehDono(uid) || ehAdmin();
+    // ---------- empresas ----------
+    match /empresas/{empresaId} {
+      allow create: if logado() && request.resource.data.donoUid == request.auth.uid;
+      allow read: if ehMembro(empresaId) || (logado() && resource.data.donoUid == request.auth.uid);
+      allow update: if ehDono(empresaId);
+      allow delete: if ehDono(empresaId);
 
-      // Criação: só o próprio usuário recém-autenticado pode criar seu doc
-      // (acontece automaticamente no primeiro login bem-sucedido).
-      allow create: if ehDono(uid);
+      // equipe
+      match /membros/{uid} {
+        allow read: if logado() && (request.auth.uid == uid || ehMembro(empresaId));
+        // O dono cria o próprio registro ao criar a empresa; quem aceita um
+        // convite cria o seu como "tecnico". LIMITAÇÃO: a regra não consegue
+        // conferir o token do convite (o core não o grava no registro), então
+        // quem souber o código da empresa (aleatório, longo) poderia se
+        // cadastrar como técnico. Para fechar, o core precisaria gravar o token.
+        allow create: if logado() && request.auth.uid == uid
+          && exists(/databases/$(database)/documents/empresas/$(empresaId))
+          && (
+            (request.resource.data.papel == 'dono'
+              && get(/databases/$(database)/documents/empresas/$(empresaId)).data.donoUid == uid)
+            || request.resource.data.papel == 'tecnico'
+          );
+        allow update: if ehDono(empresaId);
+        allow delete: if logado() && (request.auth.uid == uid || ehDono(empresaId));
+      }
 
-      // Admin pode alterar qualquer campo (aprovar plano, bloquear, etc).
-      allow update: if ehAdmin()
-        // Usuário comum só pode alterar os campos que o próprio app
-        // grava sobre si mesmo — nunca 'plano', 'planoVencimento',
-        // 'creditosRestantes' ou promover o próprio 'status' para 'aprovado'.
-        || (ehDono(uid) && apenasCampos(['pinHash','pin','primeiroAcesso'])
-        )
-        || (ehDono(uid) && apenasCampos(['status'])
-            && request.resource.data.status == 'bloqueado'); // auto-bloqueio ao expirar o plano
-
-      allow delete: if ehAdmin();
+      // todo o resto dentro da empresa (pessoas, appData, materiais, famílias,
+      // produtos e serviços, coleções criadas por cada app): só membros
+      // aprovados. A coleção "membros" fica de fora porque tem regra própria.
+      match /{colecao}/{docId} {
+        allow read, write: if colecao != 'membros' && ehMembro(empresaId);
+      }
     }
 
-    // ── solicitacoes/{uid} — pedidos de acesso (registro) ──────
-    match /solicitacoes/{uid} {
-      allow read: if ehDono(uid) || ehAdmin();
-      // Criado pelo próprio usuário logo após o cadastro no Firebase Auth.
-      allow create: if ehDono(uid);
-      // Só o próprio solicitante pode atualizar durante o fluxo de
-      // validação de e-mail (status pendente_validacao → pendente);
-      // aprovação/rejeição definitiva é sempre admin.
-      allow update: if ehAdmin() || (ehDono(uid) && apenasCampos(['status','codigo','criadoEm']));
-      allow delete: if ehAdmin() || ehDono(uid);
+    // ---------- vínculo usuário -> empresa ----------
+    match /usuarios_empresa/{uid} {
+      allow read: if logado() && request.auth.uid == uid;
+      allow create, update: if logado() && request.auth.uid == uid
+        && vinculoCombinaComMembro(request.resource.data, uid);
+      allow delete: if logado() && (request.auth.uid == uid || ehDono(resource.data.empresaId));
     }
 
-    // ── notif_admin/{id} — notificações internas para o admin ──
-    match /notif_admin/{id} {
-      // Qualquer usuário autenticado pode CRIAR uma notificação
-      // (ex.: ao se registrar), mas só o admin lê/gerencia a caixa.
-      allow create: if logado();
-      allow read, update, delete: if ehAdmin();
+    // ---------- convites ----------
+    match /convites/{token} {
+      // O token é longo e aleatório. Se um app precisar ler o convite ANTES do
+      // login, troque a linha abaixo por "allow get: if true;".
+      allow get: if logado();
+      allow list: if logado() && ehMembro(resource.data.empresaId);
+      allow create: if logado()
+        && ehDono(request.resource.data.empresaId)
+        && request.resource.data.criadoPorUid == request.auth.uid
+        && request.resource.data.usado == false;
+      allow update: if logado() && (
+        // dono cancela
+        (ehDono(resource.data.empresaId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cancelado']))
+        // convidado aceita (uma vez)
+        || (resource.data.usado == false && resource.data.cancelado == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usado', 'usadoPorUid', 'usadoEm'])
+          && request.resource.data.usado == true
+          && request.resource.data.usadoPorUid == request.auth.uid)
+      );
+      allow delete: if false;
     }
 
-    // ── exclusoes_pendentes/{id} — fila de exclusão de conta ───
-    match /exclusoes_pendentes/{id} {
-      allow create: if logado();
-      allow read, update, delete: if ehAdmin();
-    }
-
-    // ── cupons_solicitados/{id} — solicitações de cupom ─────────
-    match /cupons_solicitados/{id} {
-      allow create: if logado();
-      allow read, update, delete: if ehAdmin();
-    }
-
-    // ── contadores/{prefixo} — numeração atômica de recibos ─────
-    // Qualquer usuário autenticado e aprovado pode incrementar
-    // (é o que garante números sem duplicar entre dispositivos).
-    match /contadores/{prefixo} {
+    // ---------- base compartilhada (só com o banco ativo) ----------
+    // Por desenho do core, estas coleções são comuns a todos os apps. Qualquer
+    // usuário logado lê e grava. Se quiser restringir (por exemplo, exigir
+    // vínculo com uma empresa), troque logado() pela condição desejada.
+    match /pessoas_fisicas/{id}   { allow read, write: if logado(); }
+    match /pessoas_juridicas/{id} { allow read, write: if logado(); }
+    match /produtos_servicos/{id} { allow read, write: if logado(); }
+    match /cidades/{ibge} {
       allow read, write: if logado();
+      match /bairros/{bairro} { allow read, write: if logado(); }
     }
 
-    // ── config/{doc} — preços/planos públicos ────────────────────
-    match /config/{doc} {
-      allow read: if true; // exibido na tela pública de planos
-      allow write: if ehAdmin();
-    }
+    // ---------- modelo para coleção própria de um app (dados só do dono) ----------
+    // match /fenix_nome_do_app/{uid}/{resto=**} {
+    //   allow read, write: if logado() && request.auth.uid == uid;
+    // }
 
-    // ── convites/{codigo} — códigos de convite para Solicitar Acesso ──
-    // Leitura pública: precisa ser validado ANTES do usuário criar conta
-    // (ainda não autenticado). Só o admin cria/ativa/desativa/apaga códigos;
-    // qualquer usuário autenticado pode incrementar 'usosAtuais' (o próprio
-    // contador de uso), nunca os outros campos.
-    match /convites/{codigo} {
-      allow read: if true;
-      allow create, delete: if ehAdmin();
-      allow update: if ehAdmin() || (logado() && apenasCampos(['usosAtuais']));
-    }
-
-    // ── _ping/status — checagem de conectividade ────────────────
-    match /_ping/{doc} {
-      allow read: if logado();
-      allow write: if false;
-    }
-
-    // Bloqueia por padrão qualquer coleção não listada acima.
-    match /{document=**} {
+    // ---------- tudo o mais é negado ----------
+    match /{outros=**} {
       allow read, write: if false;
     }
   }

@@ -1,10 +1,14 @@
-Biblioteca Fênix v3.7
+Biblioteca Fênix v3.9
 
-Raiz do repositório: index.html (Painel), fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html
+Raiz do repositório: index.html (Painel), fenix-core.js, fenix-template-login.html, fenix-template-onboarding.html, firestore.rules
 Icon/   : Fenix_Icone_128.png (os demais ícones já estão no repositório)
 Termos/ : fenix-termos-de-uso.html, fenix-politica-de-privacidade.html
 MD/     : fenix-livro-das-regras.md, fenix-guia-da-biblioteca.md (guia e changelog da biblioteca)
 DOC/    : fenix-livro-das-regras.docx, fenix-guia-da-biblioteca.docx
 versoes/: cópias com a versão no nome, só para controle interno (nenhum app aponta para elas)
 
-Depois de publicar, abra https://fenicris-dev.github.io/Fenix-Core/, toque em "Testar tudo" e, no grupo "Testes ao vivo", em "Rodar testes ao vivo".
+NOVO na v3.9: FenixCore.mascaras (máscaras automáticas ao digitar). No campo: data-mask="moeda" (ou cpfcnpj, telefone, cep, data, hora...) e, uma vez, FenixCore.mascaras.auto(). Veja a seção 2.13 do guia.
+
+ATENÇÃO: firestore.rules é uma PROPOSTA. Compare com as regras publicadas hoje no console do Firebase (projeto fenix-core) e teste no Playground de regras antes de publicar. Publicar o arquivo no GitHub não altera o banco.
+
+Depois de publicar, abra https://fenicris-dev.github.io/Fenix-Core/, toque em "Testar tudo", em "Rodar testes ao vivo" e, no grupo "Testar máscaras", digite nos campos.
