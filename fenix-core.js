@@ -1,13 +1,13 @@
 /**
  * ============================================================================
- * FÊNIX CORE v3.5
+ * FÊNIX CORE v3.3
  *
  * CONVENÇÃO DE NOME (DUAS CÓPIAS A CADA ENTREGA):
  * O endereço oficial é SEMPRE fenix-core.js (sem número de versão no nome nem
  * na URL): é a cópia publicada e referenciada por todos os apps. A cada nova
  * versão é entregue também uma cópia idêntica com a versão no nome (ex:
  * fenix-core-v2.1.js), usada só para controle temporal/histórico — nenhum app
- * deve apontar para ela. O mesmo vale para o index.html (Painel da biblioteca):
+ * deve apontar para ela. O mesmo vale para o index de qualquer app:
  * index.html (publicado) + cópia com a versão no nome (histórico). A versão
  * também é registrada aqui, no comentário de topo (ver Histórico de Versões
  * abaixo). Assim, cada app aponta para o endereço UMA vez, pra sempre, e
@@ -210,12 +210,6 @@
  * v3.2 — (cancelada: endereço com sublinhado, Fenix_Core, que não existe.)
  * v3.3 — Endereço oficial confirmado: https://fenicris-dev.github.io/Fenix-Core/
         fenix-core.js (hífen). Nenhuma função foi alterada.
- * v3.4 — Nivelamento com o Livro das Regras v3.4 (index.html vira o Painel da
-        biblioteca). Nenhuma função foi alterada.
- * v3.5 — Puramente aditivo (Livro das Regras v3.5): novo
-        FenixCore.localidades.buscarPorCEPSemBanco(cep), que consulta o ViaCEP
-        e devolve o endereço SEM gravar nada no Firestore (para apps com o banco
-        ainda desligado). buscarPorCEP continua igual, para quem usa o banco.
  * ============================================================================
  */
 
@@ -1875,30 +1869,6 @@ Object.assign(localidades, {
       cidade: formatarTitulo(dados.city || ""),
       uf: (dados.state || "").toString().trim().toUpperCase(),
       origem: "brasilapi-cep"
-    };
-  },
-
-  /**
-   * Igual ao buscarPorCEP (ViaCEP), mas NÃO usa o Firestore: não cria cidade nem
-   * registra bairro. Use enquanto o banco do app estiver desligado.
-   * Devolve { cep, logradouro, bairro, cidade, uf, codigoIBGE, origem:"cep-sem-banco" }
-   * ou null se o CEP não existir.
-   */
-  async buscarPorCEPSemBanco(cep) {
-    const cepLimpo = limparDocumento(cep);
-    if (cepLimpo.length !== 8) throw new Error("CEP inválido: " + cep);
-    const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-    if (!resp.ok) return null;
-    const dados = await resp.json();
-    if (!dados || dados.erro) return null;
-    return {
-      cep: cepLimpo,
-      logradouro: formatarTitulo(dados.logradouro),
-      bairro: formatarTitulo(dados.bairro),
-      cidade: formatarTitulo(dados.localidade),
-      uf: (dados.uf || "").toString().trim().toUpperCase(),
-      codigoIBGE: dados.ibge || null,
-      origem: "cep-sem-banco"
     };
   }
 });
